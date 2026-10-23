@@ -1,0 +1,17 @@
+configuration,sequence,model,model_params,training_params,params,size_bytes,test_accuracy,test_efficiency,test_set_accuracy,test_time_s,online_accuracy,online_first_in_burst_accuracy,online_efficiency,online_time_s,updated
+mlp_128,bursts,mlp,"{""hidden_size"": 128}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",101770,407080,97.86,0.2462,97.77,16.1,94.07,89.12,0.2366,36.2,2026-10-23 13:26
+mlp_128,random,mlp,"{""hidden_size"": 128}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",101770,407080,97.86,0.2462,97.77,16.1,93.66,,0.2356,35.7,2026-10-23 13:26
+mlp_64,bursts,mlp,"{""hidden_size"": 64}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",50890,203560,97.44,0.4902,97.48,14.5,94.23,91.19,0.4740,34.1,2026-10-23 13:36
+mlp_64,random,mlp,"{""hidden_size"": 64}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",50890,203560,97.44,0.4902,97.48,14.5,93.90,,0.4724,34.8,2026-10-23 13:37
+mlp_32,bursts,mlp,"{""hidden_size"": 32}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",25450,101800,96.36,0.9693,96.25,13.6,94.19,91.19,0.9475,34.8,2026-10-23 13:47
+mlp_32,random,mlp,"{""hidden_size"": 32}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",25450,101800,96.36,0.9693,96.25,13.6,93.72,,0.9427,35.3,2026-10-23 13:47
+mlp_16,bursts,mlp,"{""hidden_size"": 16}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",12730,50920,95.04,1.9113,95.11,12.3,92.89,87.56,1.8680,33.4,2026-10-23 13:57
+mlp_16,random,mlp,"{""hidden_size"": 16}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",12730,50920,95.04,1.9113,95.11,12.3,92.46,,1.8594,33.5,2026-10-23 13:58
+mlp_8,bursts,mlp,"{""hidden_size"": 8}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",6370,25480,92.59,3.7210,92.44,13.3,91.82,85.49,3.6901,33.8,2026-10-23 14:07
+mlp_8,random,mlp,"{""hidden_size"": 8}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",6370,25480,92.59,3.7210,92.44,13.3,90.53,,3.6383,34.0,2026-10-23 14:08
+mlp_4,bursts,mlp,"{""hidden_size"": 4}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",3190,12760,85.85,6.8895,85.28,13.0,84.53,75.65,6.7836,32.7,2026-10-23 14:17
+mlp_4,random,mlp,"{""hidden_size"": 4}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",3190,12760,85.85,6.8895,85.28,13.0,83.69,,6.7162,33.5,2026-10-23 14:18
+mlp_2,bursts,mlp,"{""hidden_size"": 2}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",1600,6400,64.27,10.2832,64.66,13.6,64.38,48.70,10.3008,33.7,2026-10-23 14:27
+mlp_2,random,mlp,"{""hidden_size"": 2}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",1600,6400,64.27,10.2832,64.66,13.6,64.07,,10.2512,33.7,2026-10-23 14:28
+mlp_1,bursts,mlp,"{""hidden_size"": 1}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",805,3220,9.04,2.8748,11.35,14.6,11.79,6.22,3.7494,34.2,2026-10-23 14:43
+mlp_1,random,mlp,"{""hidden_size"": 1}","{""learning_rate"": 0.001, ""epochs"": 10, ""batch_size"": 128}",805,3220,9.04,2.8748,11.35,14.6,12.40,,3.9434,31.7,2026-10-23 14:43

@@ -7,8 +7,8 @@ The network starts from the weights mnist_mlp.py saved in weights/<configuration
 
 For every image in the sequence the network first predicts its digit (this counts
 towards the accuracy), then takes one training step on that single image.
-The online optimizer is set on the command line and is independent of the offline
-training_params: by default Adam with the configuration's learning_rate (the old behaviour).
+The online optimizer is plain SGD (momentum 0), independent of the offline training (Adam).
+The online learning rate is set on the command line; by default the configuration's learning_rate.
 
 Before any update the frozen model is also scored on the same sequence, so each run gives
 online - frozen accuracy. Every run appends one row to online_sweep.csv (see show_sweep.py).
@@ -22,7 +22,7 @@ Usage:
     python3 online_mlp.py                              # all configurations, all sequences
     python3 online_mlp.py mlp_128 other                # only the named configurations
     python3 online_mlp.py --sequence random            # only the shuffled control sequence
-    python3 online_mlp.py mlp_2 --online-optimizer sgd --online-lr 0.1
+    python3 online_mlp.py mlp_2 --online-lr 0.01
 """
 import argparse
 import csv
@@ -40,7 +40,7 @@ from mnist_mlp import (FILES, HERE, SEQUENCES, build_model, describe, get_device
 
 REPORT_EVERY = 1000
 NAN_CHECK_EVERY = 100  # how often (in images) to check the loss for NaN/inf
-OPTIMIZERS = ("adam", "sgd")
+OPTIMIZERS = ("sgd",)
 SWEEP_FILE = os.path.join(HERE, "online_sweep.csv")
 SWEEP_COLUMNS = ["configuration", "sequence", "optimizer", "online_lr", "frozen_accuracy",
                  "online_accuracy", "first_in_burst_accuracy", "rest_of_burst_accuracy",
@@ -53,7 +53,7 @@ def default_lr(config):
 
 
 def is_default(config, optimizer_name, lr):
-    return optimizer_name == "adam" and lr == default_lr(config)
+    return optimizer_name == "sgd" and lr == default_lr(config)
 
 
 def results_file(config, sequence, optimizer_name, lr):
@@ -85,8 +85,6 @@ def append_sweep_row(values):
 
 
 def make_optimizer(name, params, lr):
-    if name == "adam":
-        return torch.optim.Adam(params, lr=lr)
     if name == "sgd":
         return torch.optim.SGD(params, lr=lr, momentum=0)
     raise SystemExit("Unknown optimizer '%s'. Available: %s" % (name, ", ".join(OPTIMIZERS)))
@@ -96,7 +94,7 @@ def pct(mask_correct):
     return "%.2f" % (mask_correct.mean() * 100)
 
 
-def run(config, device, x_all, y_all, indices, bursts, seq, sequence, optimizer_name="adam", lr=None):
+def run(config, device, x_all, y_all, indices, bursts, seq, sequence, optimizer_name="sgd", lr=None):
     """One online pass over a sequence. Returns a dict with the online_sweep.csv values,
     plus the size report under "report" (None if the run diverged)."""
     if lr is None:
@@ -233,8 +231,8 @@ def main():
     parser.add_argument("--sequence", choices=list(SEQUENCES), help="run only this sequence")
     parser.add_argument("--online-lr", type=float, default=None,
                         help="online learning rate (default: the configuration's learning_rate)")
-    parser.add_argument("--online-optimizer", choices=OPTIMIZERS, default="adam",
-                        help="online optimizer (default: adam; sgd is plain SGD, momentum 0)")
+    parser.add_argument("--online-optimizer", choices=OPTIMIZERS, default="sgd",
+                        help="online optimizer (only sgd: plain SGD, momentum 0)")
     args = parser.parse_args()
 
     configs = load_configurations(args.configurations)

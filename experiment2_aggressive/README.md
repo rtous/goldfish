@@ -8,8 +8,9 @@ Key metric, the **locality effect**:
 
     (online − frozen accuracy on bursts) − (online − frozen accuracy on random)
 
-This experiment makes the online optimizer and learning rate configurable, separately from the
-offline `training_params`, so the online phase can learn and forget more aggressively.
+Offline training uses Adam (`training_params`). The online phase uses plain SGD (momentum 0)
+with a configurable learning rate, swept over 0.0003, 0.001, 0.003 and 0.01.
+Configurations: mlp_128, mlp_16, mlp_8, mlp_4, mlp_2.
 
 ## Scripts
 
@@ -18,7 +19,7 @@ offline `training_params`, so the online phase can learn and forget more aggress
 | `make_sequence.py` | builds `sequence.csv` and `sequence_random.csv` |
 | `mnist_mlp.py` | trains every configuration in `configurations.json` offline, saves `weights/<config>.pt`, scores the frozen model on the sequences (`results.csv`) |
 | `online_mlp.py` | online pass: predict each image, then one training step on it |
-| `sweep_online.py` | runs `online_mlp.py`'s run for a grid of optimizers and learning rates |
+| `sweep_online.py` | runs `online_mlp.py`'s run for a grid of SGD learning rates |
 | `show_results.py` | prints `results.csv`, plus each non-default online setting from `online_sweep.csv` as an extra row (`--no-sweep` to hide them) |
 | `show_sweep.py` | prints the online sweep: online − frozen per sequence, locality effect, best lr |
 
@@ -26,22 +27,20 @@ offline `training_params`, so the online phase can learn and forget more aggress
 
 ```bash
 python3 mnist_mlp.py                       # offline training (already done: weights/)
-python3 online_mlp.py                      # online, default settings: Adam, config's learning_rate
-python3 online_mlp.py mlp_2 --sequence bursts --online-optimizer sgd --online-lr 0.1
+python3 online_mlp.py                      # online, default settings: SGD, config's learning_rate
+python3 online_mlp.py mlp_2 --sequence bursts --online-lr 0.01
 python3 show_results.py
 
-# Sweep: every configuration x both sequences x
-#   adam: 0.001 0.003 0.01 0.03    sgd (momentum 0): 0.001 0.003 0.01 0.03 0.1 0.3
-python3 sweep_online.py                    # 140 runs, roughly 80-90 min on the Jetson
-python3 sweep_online.py mlp_2 mlp_4 --adam-lrs 0.001,0.03 --sgd-lrs 0.01,0.3
-python3 sweep_online.py --sgd-lrs ""       # Adam only
+# Sweep: every configuration x both sequences x sgd (momentum 0): 0.0003 0.001 0.003 0.01
+python3 sweep_online.py                    # 40 runs
+python3 sweep_online.py mlp_2 mlp_4 --sgd-lrs 0.001,0.01
 python3 show_sweep.py                      # or: python3 show_sweep.py mlp_2 mlp_4
 ```
 
 `online_mlp.py` options:
 
 - `--online-lr FLOAT`: online learning rate (default: the configuration's `learning_rate`)
-- `--online-optimizer adam|sgd`: default `adam`; `sgd` is plain SGD with momentum 0
+- `--online-optimizer sgd`: the only option, plain SGD with momentum 0
 - `--sequence bursts|random`: run only one sequence (default: both)
 
 The offline weights are only read, never modified.
@@ -58,6 +57,6 @@ The offline weights are only read, never modified.
   recorded with `status = diverged`, `diverged_at` = sequence position (0-based) of the first
   bad loss, and empty online accuracies. The sweep carries on.
 - `results.csv` and `online_results_<config>_<sequence>.csv` are updated only by runs with the
-  default online settings (Adam, config `learning_rate`), so `show_results.py` keeps showing
+  default online settings (SGD, config `learning_rate`), so `show_results.py` keeps showing
   the original setup. Per-image results of other settings go to
   `online_runs/online_results_<config>_<sequence>_<optimizer>_lr<lr>.csv`.

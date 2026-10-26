@@ -2,7 +2,7 @@
 together with the online optimizer/lr runs in online_sweep.csv (online_mlp.py, sweep_online.py).
 
 One row per configuration and online setting, with the bursts and random sequences side by side.
-The first row of each configuration is the default online setting (Adam, the configuration's
+The first row of each configuration is the default online setting (SGD, the configuration's
 learning_rate); every other setting in online_sweep.csv (latest run of each) follows it, with
 its offline columns left blank since they are the same. The offline (frozen) accuracy is the
 same on both sequences, as they hold the same images.
@@ -159,18 +159,18 @@ def build_rows(results, sweep):
         base = per_seq.get("bursts") or next(iter(per_seq.values()))
         lr0 = default_lr(base)
         # online[(optimizer, lr)][sequence] = accuracy string (or "diverged")
-        online = {("adam", lr0): {seq: r["online_accuracy"] for seq, r in per_seq.items()
+        online = {("sgd", lr0): {seq: r["online_accuracy"] for seq, r in per_seq.items()
                                   if r.get("online_accuracy")}}
         for (cfg, seq, opt, lr), s in sweep.items():
             if cfg == name:
                 online.setdefault((opt, lr), {})[seq] = (
                     s["online_accuracy"] if s["status"] == "ok" else "diverged")
-        settings = [("adam", lr0)] + sorted(k for k in online if k != ("adam", lr0))
+        settings = [("sgd", lr0)] + sorted(k for k in online if k != ("sgd", lr0))
         for opt, lr in settings:
-            if not online[(opt, lr)] and (opt, lr) != ("adam", lr0):
+            if not online[(opt, lr)] and (opt, lr) != ("sgd", lr0):
                 continue
             row = {c: base.get(c, "") for c in REPEATED}
-            row.update({"configuration": name, "_sub": (opt, lr) != ("adam", lr0),
+            row.update({"configuration": name, "_sub": (opt, lr) != ("sgd", lr0),
                         "online_setting": "%s %g" % (opt, lr) if lr is not None else opt})
             for seq in SEQUENCES:
                 acc = online[(opt, lr)].get(seq, "")

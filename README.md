@@ -1,43 +1,24 @@
-# memory: online learning vs. temporal locality on MNIST
+# goldfish: exploiting temporal locality at inference time
 
-Does a small MLP trained online (one image at a time) exploit temporal locality in its
-input stream? The stream is a sequence of 10000 MNIST test images arranged in bursts of
-3 digits; a shuffled copy of the same sequence is the no-locality control.
+Many ML inputs have strong temporal locality. A model that sees such inputs does not need to
+remember everything all the time: it can remember some basics and adapt fast to the current
+context. Under tight capacity limits, online training could then beat offline training, and
+the recency bias of neural networks, usually treated as a problem, could become a benefit.
 
-## Run
+The experiments test this on MNIST. Small networks are trained offline, then updated online
+(predict, then one training step per image) on a stream of 10000 test images arranged in bursts
+of 3 digits. A shuffled copy of the same stream is the no-locality control. The key metric is
+the **locality effect**: online accuracy on bursts minus online accuracy on the shuffled stream.
 
-```bash
-python3 make_sequence.py                 # sequence.csv (bursts) + sequence_random.csv (shuffled)
-python3 mnist_mlp.py                     # train offline, score the frozen model on both sequences
-python3 online_mlp.py                    # online updates on the burst sequence
-python3 online_mlp.py --sequence random  # online updates on the shuffled control
-python3 show_results.py                  # results table (one row per configuration and sequence)
-```
+## Folders
 
-All scripts accept configuration names to run a subset, e.g. `python3 online_mlp.py mlp_2 mlp_4`.
-MNIST is downloaded to `data/` on first use. A CUDA GPU is required.
-
-## Files
-
-| file | what it does |
+| folder | contents |
 |---|---|
-| `make_sequence.py` | builds the burst sequence and its shuffled control |
-| `mnist_mlp.py` | offline training; saves `weights/<config>.pt`; shared helpers |
-| `online_mlp.py` | predict-then-train on each image, starting from the offline weights |
-| `show_results.py` | prints `results.csv` |
-| `models/mlp.py` | 784 → hidden_size → 10 MLP |
-| `configurations.json` | the seven configurations, h = 128 … 2 |
+| [`experiments_all/`](experiments_all/README.md) | code, data and one subfolder per experiment |
+| [`paper/`](paper/) | LaTeX draft of the paper (`main.tex`, built as `main.pdf`) |
 
-## Provenance
-
-`mnist_mlp.py`, `online_mlp.py` and `show_results.py` are the original scripts, with one
-addition: a `sequence` dimension (`--sequence bursts|random`, a `sequence` column in
-`results.csv`) and a fixed training seed in `mnist_mlp.py`.
-
-`make_sequence.py`, `models/mlp.py` and `configurations.json` were reconstructed:
-
-- `models/mlp.py` reproduces the original parameter counts exactly.
-- `make_sequence.py` matches the original format (3 digits per burst, images drawn with
-  replacement from the test set, ~52 images per burst on average), but not the exact sequence.
-  The random control is now a permutation of the burst sequence, so both contain the same
-  images and the frozen model scores identically on them.
+| experiment | question | answer so far |
+|---|---|---|
+| [1](experiments_all/experiment1/README.md) | Do small MLPs naturally exploit temporal locality when trained online? | slightly: a small positive locality effect |
+| [2](experiments_all/experiment2/README.md) | Do higher online learning rates exploit it better? | yes, for small models: up to +12 pp locality effect |
+| [3](experiments_all/experiment3/README.md) | Does it also hold for a small CNN? | partly: locality effect, but no gain over the frozen model |

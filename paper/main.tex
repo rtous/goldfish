@@ -24,13 +24,12 @@ consecutive inputs tend to be similar and come from a small part of the input di
 A model facing such inputs does not need to keep everything it knows ready at all times.
 It may be enough to remember some basic knowledge and adapt quickly to the current context.
 We study whether this allows smaller models.
-Multilayer perceptrons of decreasing size are trained offline on MNIST and then updated online, one image at a time, while they classify a stream of test images arranged in bursts of three digits, with 10\% intruders from outside the current burst.
-A shuffled copy of the same stream serves as a control without locality.
+Multilayer perceptrons of decreasing size are trained offline on MNIST and then updated online, one image at a time, while they classify a stream of test images arranged in bursts of three digits.
+A shuffled copy of the same stream serves as a control: it checks that the online gains come from temporal locality and not merely from training on more data.
 With plain SGD, small models trained online classify the bursty stream more accurately than their frozen offline version, and the gain over the shuffled stream grows as the model shrinks and as the online learning rate increases.
-For the smallest model (6.2\,KB), online learning raises accuracy from 64.0\% to 69.0\%, while on the shuffled stream it stays at 64.0\%.
-The price is paid on the intruders, and it grows with the learning rate.
-Splitting the weights into slow and fast parts helps when the fast part is only the output bias, which raises the smallest model to 71.5\%, but a running label prior that learns no weights does as well or better.
-In this stream the locality is only in the labels, and every method that exploits it loses accuracy on the intruders.
+For the smallest model (6.2\,KB), online learning raises accuracy from 64.3\% to 70.7\%, while on the shuffled stream it stays at 63.7\%.
+Splitting the weights into slow and fast parts helps when the fast part is only the output bias, which raises the smallest model to 76.9\%, but a running label prior that learns no weights does better (77.7\%).
+In this stream the locality is only in the labels, which favors methods that track the recent labels.
 \end{abstract}
 
 \section{Introduction}
@@ -51,7 +50,6 @@ An online model can spend it on the part of the distribution that is active now.
 The price is forgetting: neural networks trained sequentially lose what they learned earlier, a behavior known as catastrophic forgetting \cite{mccloskey1989catastrophic,french1999catastrophic}.
 This recency bias is usually treated as a problem.
 In a stream with temporal locality it may be useful, because what was seen recently is what will be seen next.
-Real streams are not perfectly local, though, and a model that adapts to the current context may fail on the inputs that do not fit it.
 
 This paper reports a first set of experiments on MNIST \cite{lecun1998gradient}.
 Experiment~1 checks whether small networks exploit temporal locality when they keep learning online with plain SGD, and how the online learning rate matters.
@@ -86,14 +84,14 @@ We study a different route to small models that is complementary to compression.
 The stream contains 10{,}000 positions built from MNIST test images.
 It is divided into 193 bursts of random length between 10 and 95 images (51.8 on average).
 Each burst picks 3 distinct digits at random, and every position in the burst is a random test image of one of those digits, drawn with replacement.
-Then 10\% of the positions (1{,}000), chosen at random, are replaced by \emph{intruders}: a random test image of a digit that does not appear in that burst.
-The other 9{,}000 positions are the \emph{regular} images.
-The stream holds 6{,}299 distinct test images.
-As a reference for how much locality the stream has, predicting the label of the previous image is correct 26.3\% of the time.
+The stream holds 6{,}322 distinct test images.
+As a reference for how much locality the stream has, predicting the label of the previous image is correct 32.3\% of the time.
 
 The control stream is a random permutation of the same positions.
 It contains exactly the same images, so any difference in accuracy comes from their order.
-On the control stream, predicting the previous label is correct 10.3\% of the time.
+On the control stream, predicting the previous label is correct 9.9\% of the time.
+The control is not a scenario we expect in practice: we assume that the real input streams have temporal locality and are not random.
+Its only purpose is to show whether a gain from online learning comes from that locality or merely from training on more data.
 
 The images of a burst are drawn independently given their digit, so the locality of the stream is in the labels only.
 
@@ -112,14 +110,13 @@ We report these quantities, all on the same 10{,}000 positions:
   \item \emph{frozen accuracy}: the frozen model without updates (equal on both streams, since they hold the same images);
   \item \emph{online accuracy on bursts} and \emph{online accuracy on random}: the online model on each stream;
   \item \emph{online gain}: online accuracy on bursts minus frozen accuracy;
-  \item \emph{locality effect}: online accuracy on bursts minus online accuracy on random;
-  \item the online gain restricted to the regular images and to the intruders, each against the frozen accuracy on the same images.
+  \item \emph{locality effect}: online accuracy on bursts minus online accuracy on random.
 \end{itemize}
 Differences are given in percentage points (pp).
 The online gain tells whether online learning is worth it on the bursty stream.
 The locality effect isolates the part of the gain that comes from temporal locality.
 It removes the effect of simply training more, and of seeing some test images more than once, which happens in both streams.
-The gain on intruders measures the cost of adapting to the current context.
+Online accuracy on random minus frozen accuracy shows what online learning would give without locality, that is, the effect of the extra training alone.
 
 Model size is the memory needed to store all parameters and buffers as 32 bit floats.
 All runs use a fixed seed (0).
@@ -135,7 +132,7 @@ The online phase uses plain SGD without momentum.
 \subsection{Experiment 1: online learning rate}
 
 The first experiment updates MLPs with $h \in \{128, 16, 8, 4, 2\}$ online with SGD at four learning rates: 0.0003, 0.001, 0.003 and 0.01.
-Table~\ref{tab:exp1} gives the online gain and the locality effect, and Table~\ref{tab:exp1split} splits the gain into regular images and intruders.
+Table~\ref{tab:exp1} gives the online gain and the locality effect, and Table~\ref{tab:exp1random} the change on the shuffled stream.
 Figures~\ref{fig:exp1acc} and~\ref{fig:exp1loc} show the results against model size.
 
 \begin{table}[t]
@@ -148,30 +145,28 @@ Figures~\ref{fig:exp1acc} and~\ref{fig:exp1loc} show the results against model s
 \cmidrule(lr){4-7} \cmidrule(lr){8-11}
 $h$ & KB & frozen & 0.0003 & 0.001 & 0.003 & 0.01 & 0.0003 & 0.001 & 0.003 & 0.01 \\
 \midrule
-128 & 397.5 & 97.82 & $+0.22$ & $+0.17$ & $-0.24$ & $-2.59$ & $-0.05$ & $-0.11$ & $+0.03$ & $+0.68$ \\
-16  &  49.7 & 95.07 & $+0.16$ & $+0.22$ & $-0.60$ & $-5.37$ & $+0.00$ & $+0.15$ & $+0.30$ & $+1.97$ \\
-8   &  24.9 & 92.46 & $+0.62$ & $+1.00$ & $+0.03$ & $-4.42$ & $+0.36$ & $+1.18$ & $+1.99$ & $+3.50$ \\
-4   &  12.5 & 85.68 & $+1.02$ & $+1.12$ & $-0.51$ & $-8.33$ & $+1.41$ & $+2.60$ & $+3.64$ & $+8.05$ \\
-2   &   6.2 & 63.95 & $+3.41$ & $+5.00$ & $+4.51$ & $-6.90$ & $+1.91$ & $+4.99$ & $+9.05$ & $+9.71$ \\
+128 & 397.5 & 97.86 & $+0.33$ & $+0.19$ & $-0.22$ & $-2.62$ & $+0.16$ & $-0.05$ & $-0.15$ & $+0.87$ \\
+16  &  49.7 & 95.04 & $+0.25$ & $+0.37$ & $+0.25$ & $-4.22$ & $+0.05$ & $+0.19$ & $+1.38$ & $+2.49$ \\
+8   &  24.9 & 92.59 & $+0.75$ & $+1.36$ & $+0.72$ & $-2.88$ & $+0.48$ & $+1.49$ & $+2.35$ & $+4.30$ \\
+4   &  12.5 & 85.85 & $+1.38$ & $+2.30$ & $+1.59$ & $-4.28$ & $+1.49$ & $+3.69$ & $+5.55$ & $+12.58$ \\
+2   &   6.2 & 64.27 & $+4.25$ & $+6.44$ & $+6.45$ & $-4.50$ & $+2.98$ & $+6.99$ & $+10.93$ & $+11.70$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{table}[t]
 \centering
-\caption{Experiment 1: online gain on the bursty stream, restricted to the 9{,}000 regular images and to the 1{,}000 intruders, each against the frozen model on the same images, in pp.}
-\label{tab:exp1split}
-\begin{tabular}{r rrrr rrrr}
+\caption{Experiment 1: change on the shuffled stream (online accuracy on random minus frozen), in pp.}
+\label{tab:exp1random}
+\begin{tabular}{r rrrr}
 \toprule
- & \multicolumn{4}{c}{regular images} & \multicolumn{4}{c}{intruders} \\
-\cmidrule(lr){2-5} \cmidrule(lr){6-9}
-$h$ & 0.0003 & 0.001 & 0.003 & 0.01 & 0.0003 & 0.001 & 0.003 & 0.01 \\
+$h$ & 0.0003 & 0.001 & 0.003 & 0.01 \\
 \midrule
-128 & $+0.21$ & $+0.14$ & $-0.19$ & $-2.34$ & $+0.30$ & $+0.40$ & $-0.70$ & $-4.90$ \\
-16  & $+0.16$ & $+0.37$ & $-0.16$ & $-4.27$ & $+0.10$ & $-1.20$ & $-4.60$ & $-15.30$ \\
-8   & $+0.71$ & $+1.40$ & $+0.83$ & $-3.03$ & $-0.20$ & $-2.60$ & $-7.20$ & $-17.00$ \\
-4   & $+1.80$ & $+2.60$ & $+1.58$ & $-5.27$ & $-6.00$ & $-12.20$ & $-19.30$ & $-35.90$ \\
-2   & $+4.41$ & $+6.98$ & $+7.13$ & $-3.98$ & $-5.60$ & $-12.80$ & $-19.10$ & $-33.20$ \\
+128 & $+0.17$ & $+0.24$ & $-0.07$ & $-3.49$ \\
+16  & $+0.20$ & $+0.18$ & $-1.13$ & $-6.71$ \\
+8   & $+0.27$ & $-0.13$ & $-1.63$ & $-7.18$ \\
+4   & $-0.11$ & $-1.39$ & $-3.96$ & $-16.86$ \\
+2   & $+1.27$ & $-0.55$ & $-4.48$ & $-16.20$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -191,17 +186,14 @@ $h$ & 0.0003 & 0.001 & 0.003 & 0.01 & 0.0003 & 0.001 & 0.003 & 0.01 \\
 \end{figure}
 
 With SGD and learning rates up to 0.001, online learning improves on the frozen model at every size.
-The online gain grows as the model shrinks: about 0.2\,pp for $h \geq 16$, and 5.00\,pp for $h=2$ at learning rate 0.001 (from 63.95\% to 68.95\%).
-On the shuffled stream the same small model stays where it was (63.96\%), so the gain comes from the order of the inputs and not from the extra training.
-Learning rate 0.001 gives the largest online gain at every size except $h=128$, where 0.0003 is ahead by 0.05\,pp.
+The online gain grows as the model shrinks: 0.2 to 0.4\,pp for $h \geq 16$, and 6.44\,pp for $h=2$ at learning rate 0.001 (from 64.27\% to 70.71\%).
+On the shuffled stream the same small model stays near where it was (63.72\%), so the gain comes from the order of the inputs and not from the extra training.
+Learning rate 0.001 gives the largest online gain for $h = 16$, 8 and 4; for $h=2$, 0.003 is level with it ($+6.45$ against $+6.44$\,pp), and for $h=128$, 0.0003 is ahead ($+0.33$ against $+0.19$\,pp).
 
 The locality effect grows in two directions: as the model gets smaller and as the learning rate gets larger.
-At learning rate 0.01 it reaches 9.71\,pp for $h=2$, but there the online model is worse than the frozen one on both streams, even on the regular images: the effect is large because accuracy on the shuffled stream collapses faster.
-
-The intruders show the cost of adapting.
-For the small models, the faster the learning rate, the more accuracy is lost on intruders: for $h=2$, from $-5.6$\,pp at 0.0003 to $-33.2$\,pp at 0.01.
-At $h=2$, learning rate 0.003 gains as much as 0.001 on the regular images ($+7.13$ against $+6.98$\,pp) but loses more on intruders ($-19.1$ against $-12.8$\,pp), which puts it behind overall.
-The large model ($h=128$) shows almost no locality effect and no cost on intruders at learning rates up to 0.001.
+At learning rate 0.01 it reaches 12.58\,pp for $h=4$, but there the online model is worse than the frozen one on both streams: the effect is large because accuracy on the shuffled stream collapses faster (Table~\ref{tab:exp1random}).
+Between these extremes, learning rate 0.003 matches 0.001 on bursts for $h=2$ but is 4.5\,pp below the frozen model on the shuffled control, where 0.001 is 0.6 below: a faster rate relies more on the recent past, and so more of its gain is due to locality.
+The large model ($h=128$) shows almost no locality effect at learning rates up to 0.003.
 With enough capacity, the frozen model already covers the whole distribution and there is little to gain from adapting to the current context.
 
 \subsection{Experiment 2: two time scales}
@@ -222,62 +214,58 @@ We compare four online variants, on MLPs with $h \in \{128, 8, 4, 2\}$:
   \item \emph{sgd}: plain SGD, $\eta_\text{slow} = 0.001$, no fast part (the best setting of Experiment~1);
   \item \emph{fast bias}: $\eta_\text{slow} = 0.001$, with a fast part on the output bias only ($\eta_\text{fast} = 1$, $\lambda = 0.97$), which adds 10 values;
   \item \emph{fast all}: $\eta_\text{slow} = 0.001$, with a fast part on every weight and bias ($\eta_\text{fast} = 0.003$, $\lambda = 0.99$), which doubles the model;
-  \item \emph{label prior}: frozen weights and a running estimate $p$ of the label frequencies, $p \leftarrow 0.9\,p + 0.1\,\text{onehot}(y)$ after each prediction, starting uniform and kept $\geq 10^{-3}$. Prediction adds $\log((1-m)\,p + m/10)$ to the logits. The mix $m$ keeps digits that are absent from the recent past possible; $m = 0.2$ gave the best accuracy among $\{0, 0.05, 0.1, 0.2\}$ for $h=2$. It learns no weights and adds 10 values.
+  \item \emph{label prior}: frozen weights and a running estimate $p$ of the label frequencies, $p \leftarrow 0.9\,p + 0.1\,\text{onehot}(y)$ after each prediction, starting uniform and kept $\geq 10^{-3}$. Prediction adds $\log p$ to the logits, so digits absent from the recent past become very unlikely. It learns no weights and adds 10 values.
 \end{itemize}
 The label prior is a baseline that exploits exactly the locality in the labels and nothing else.
-The fast-part hyperparameters were tuned on the stream without intruders, and $m$ on the stream with them.
-As a ceiling for the regular images, we also score an oracle: the frozen model with its prediction restricted to the digits of the current burst, which it knows in advance.
-It is always wrong on intruders, by construction.
+The fast-part hyperparameters were tuned on the same stream they are scored on.
+As a ceiling, we also score an oracle: the frozen model with its prediction restricted to the digits of the current burst, which it knows in advance.
 
-Table~\ref{tab:exp2} gives the results, and Figure~\ref{fig:exp2} shows the accuracy on intruders and on regular images against model size.
+Table~\ref{tab:exp2} gives the results, and Figure~\ref{fig:exp2} shows the online gain and the locality effect against model size.
 
 \begin{table}[t]
 \centering
 \small
-\setlength{\tabcolsep}{3pt}
-\caption{Experiment 2: online gain on the bursty stream for the four variants, overall and restricted to the regular images and to the intruders, each against the frozen model on the same images, in pp. The oracle restricts the frozen model to the digits of the current burst.}
+\setlength{\tabcolsep}{2.5pt}
+\caption{Experiment 2: online gain on the bursty stream (bursts minus frozen), locality effect (bursts minus random) and change on the shuffled stream (random minus frozen) for the four variants, in pp. The oracle restricts the frozen model to the digits of the current burst.}
 \label{tab:exp2}
-\begin{tabular}{r rrrr rrrrr rrrr}
+\begin{tabular}{r rrrrr rrrr rrrr}
 \toprule
- & \multicolumn{4}{c}{overall} & \multicolumn{5}{c}{regular images} & \multicolumn{4}{c}{intruders} \\
-\cmidrule(lr){2-5} \cmidrule(lr){6-10} \cmidrule(lr){11-14}
-$h$ & sgd & prior & f.\ bias & f.\ all & sgd & prior & f.\ bias & f.\ all & oracle & sgd & prior & f.\ bias & f.\ all \\
+ & \multicolumn{5}{c}{online gain} & \multicolumn{4}{c}{locality effect} & \multicolumn{4}{c}{shuffled stream} \\
+\cmidrule(lr){2-6} \cmidrule(lr){7-10} \cmidrule(lr){11-14}
+$h$ & sgd & prior & f.\ bias & f.\ all & oracle & sgd & prior & f.\ bias & f.\ all & sgd & prior & f.\ bias & f.\ all \\
 \midrule
-128 & $+0.17$ & $+0.42$ & $+0.31$ & $-0.03$ & $+0.14$ & $+0.60$ & $+0.31$ & $+0.05$ & $+1.41$ & $+0.4$ & $-1.2$ & $+0.3$ & $-0.8$ \\
-8   & $+1.00$ & $+2.20$ & $+1.28$ & $+0.29$ & $+1.40$ & $+2.89$ & $+1.70$ & $+1.05$ & $+4.77$ & $-2.6$ & $-4.0$ & $-2.5$ & $-6.6$ \\
-4   & $+1.12$ & $+3.22$ & $+1.56$ & $-0.31$ & $+2.60$ & $+5.00$ & $+3.51$ & $+1.74$ & $+9.02$ & $-12.2$ & $-12.8$ & $-16.0$ & $-18.8$ \\
-2   & $+5.00$ & $+8.78$ & $+7.51$ & $+4.25$ & $+6.98$ & $+12.90$ & $+11.42$ & $+6.84$ & $+21.55$ & $-12.8$ & $-28.3$ & $-27.7$ & $-19.1$ \\
+128 & $+0.19$ & $+0.80$ & $+0.30$ & $+0.17$ & $+1.45$ & $-0.05$ & $+1.22$ & $+0.09$ & $+0.34$ & $+0.24$ & $-0.42$ & $+0.21$ & $-0.17$ \\
+8   & $+1.36$ & $+2.76$ & $+1.83$ & $+1.34$ & $+4.83$ & $+1.49$ & $+4.78$ & $+2.46$ & $+3.63$ & $-0.13$ & $-2.02$ & $-0.63$ & $-2.29$ \\
+4   & $+2.30$ & $+5.17$ & $+3.51$ & $+2.39$ & $+8.86$ & $+3.69$ & $+9.83$ & $+6.31$ & $+7.77$ & $-1.39$ & $-4.66$ & $-2.80$ & $-5.38$ \\
+2   & $+6.44$ & $+13.43$ & $+12.66$ & $+7.92$ & $+21.48$ & $+6.99$ & $+24.00$ & $+19.98$ & $+14.38$ & $-0.55$ & $-10.57$ & $-7.32$ & $-6.46$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{figures/exp2_intruders.pdf}
-\caption{Experiment 2: online accuracy on the intruders (left) and on the regular images (right) of the bursty stream against model size, one line per variant, with the frozen model dashed.}
+\includegraphics[width=\linewidth]{figures/exp2_locality.pdf}
+\caption{Experiment 2: online gain (left) and locality effect (right) against model size, one line per variant.}
 \label{fig:exp2}
 \end{figure}
 
-No variant gains on the regular images without losing on the intruders.
-The label prior gains most on the regular images at every size ($+12.90$\,pp for $h=2$, 60\% of the oracle's $+21.55$) and has the best overall accuracy at every size.
-A fast output bias is second.
-For $h=128$ and $h=8$ it loses about the same on intruders as plain SGD while gaining more on the regular images, a clear improvement; for $h=4$ and $h=2$ it loses much more ($-27.7$ against $-12.8$\,pp for $h=2$).
-Plain SGD gains least of the three but has the smallest cost on intruders for the small models.
-Making the whole network fast is worse than plain SGD at every size, with less gain on the regular images and more loss on the intruders, and it doubles the model.
+The label prior gains most at every size ($+13.43$\,pp for $h=2$, 63\% of the oracle's $+21.48$), without learning any weights.
+A fast output bias is second at every size and comes close to the prior for $h=2$ ($+12.66$\,pp), nearly double plain SGD ($+6.44$\,pp).
+Making the whole network fast barely improves on plain SGD ($+7.92$ against $+6.44$\,pp for $h=2$, level at the other sizes), and it doubles the model.
 
-On the shuffled stream, the label prior and the fast variants lose 5.5 to 6.7\,pp for $h=2$, while plain SGD loses nothing.
+On the shuffled control every variant ends up at or below the frozen model for $h \leq 8$ (for $h=2$: label prior $-10.57$\,pp, fast variants $-6.5$ to $-7.3$\,pp, plain SGD $-0.55$\,pp), so their gains on the bursty stream come from its temporal locality and not from the extra training.
+The prior depends on locality most, since it nearly rules out the digits it has not seen recently.
 
 \section{Discussion}
 
 The experiments support the hypothesis for small MLPs.
 When capacity is very limited, a model that keeps adapting to the current context classifies a stream with temporal locality better than the same model frozen, and the advantage comes from the locality: it disappears or reverses on a shuffled copy of the stream.
-The recency bias of online training, which hurts on the shuffled stream, helps on the bursty one.
+The recency bias of online training, which hurts on the shuffled control, helps on the bursty one.
 Seen this way, the learning rate controls the length of the model's memory: a larger rate forgets faster and adapts faster.
 The best value should depend on how long the contexts last, which here is about 50 images.
 
-The intruders make the trade-off visible.
-Every way of exploiting the burst, from a faster learning rate to fast weights or a label prior, also makes the model more confident in the current digits and costs accuracy on the inputs that do not belong to the burst.
-How much this matters depends on the application: the cost of an error on an unexpected input may be much higher than on a common one.
+The shuffled control is not a deployment scenario: we assume that real streams have temporal locality.
+It shows that every way of exploiting the burst more strongly, from a faster learning rate to fast weights or a label prior, relies more on that locality, and would not help on a stream without it.
 
 The strength of the label prior says something about the stream rather than about fast weights.
 The images of a burst share only their labels, so the most useful thing to remember about the recent past is which digits are active.
@@ -285,20 +273,20 @@ A fast output bias can learn this, and that is what it does best; a fast copy of
 A stream whose locality is also in the inputs would be a fairer test of fast weights, because a label prior cannot exploit it.
 
 The results also have clear limits.
-The task is MNIST and the stream is synthetic, with an idealized form of locality: bursts with sharp boundaries and only three classes each, and intruders spread uniformly.
+The task is MNIST and the stream is synthetic, with an idealized form of locality: bursts with sharp boundaries and only three classes each.
 The online model receives the true label right after each prediction, which many applications cannot provide.
-Every result comes from a single run with seed 0, so differences below about 0.5\,pp may not be meaningful, and accuracies on the 1{,}000 intruders have a sampling uncertainty of about 1.5\,pp for $h=2$.
-The hyperparameters of Experiment~2 were tuned on the same streams they are scored on.
+Every result comes from a single run with seed 0, so differences below about 0.5\,pp may not be meaningful.
+The fast-weight hyperparameters of Experiment~2 were tuned on the same stream they are scored on.
 The stream draws test images with replacement, so the online model sees some images more than once; the shuffled control has the same repetitions, and the locality effect cancels this out, but the online gain does not.
 
 \section{Conclusion and next steps}
 
 Small MLPs trained online at inference time exploit the temporal locality of their input stream.
 Below some model size they become more accurate than their frozen offline version, and the advantage is tied to the order of the inputs.
-The effect grows as the model shrinks and as the online learning rate increases, and so does the cost on the inputs that do not fit the current context.
-A fast output bias on top of slow weights improves the trade-off for the larger models, but a running label prior without any learning does as well or better, because the locality of the stream is in the labels.
+The effect grows as the model shrinks and as the online learning rate increases, and the shuffled control confirms that it comes from temporal locality and not from training on more data.
+A fast output bias on top of slow weights nearly doubles the gain of plain SGD for the smallest model, but a running label prior without any learning does better, because the locality of the stream is in the labels.
 
-Next steps include streams with locality in the inputs (for example one shared distortion per burst), repeating the runs with several seeds, tuning on separate streams, varying the burst length, the number of classes per burst and the intrusion rate, testing streams with natural locality (for example video) and other architectures, and replacing the true labels with weaker feedback.
+Next steps include streams with locality in the inputs (for example one shared distortion per burst), repeating the runs with several seeds, tuning on separate streams, varying the burst length and the number of classes per burst, testing streams with natural locality (for example video) and other architectures, and replacing the true labels with weaker feedback.
 
 \bibliographystyle{plainnat}
 \bibliography{references}

@@ -1,7 +1,6 @@
 """Show results.csv (written by mnist_mlp.py and online_mlp.py): one row per configuration in
 configurations.json, in file order, with the offline (frozen) model and the online runs on the
-bursts and random sequences side by side. When the sequence has intruders, intr% and reg% split
-each accuracy into intruders and the other (regular) images. The offline accuracy is the same on both sequences,
+bursts and random sequences side by side. The offline accuracy is the same on both sequences,
 as they hold the same images.
 
 The online bursts group also shows the relative accuracy change (%) of the bursts run,
@@ -36,30 +35,21 @@ COLUMNS = [
     ("size_bytes", "KB", 0),
     ("offline_accuracy", "acc%", 0),
     ("offline_efficiency", "acc/KB", 0),
-    ("offline_intruder_accuracy", "intr%", 1),
-    ("offline_regular_accuracy", "reg%", 1),
     ("test_set_accuracy", "set%", 1),
     ("online_params", "online", 0),
     ("bursts_accuracy", "acc%", 0),
     ("bursts_efficiency", "acc/KB", 1),
-    ("bursts_intruder_accuracy", "intr%", 0),
-    ("bursts_regular_accuracy", "reg%", 0),
     ("bursts_vs_batch", "vs batch%", 0),
     ("bursts_vs_random", "vs random%", 0),
     ("random_accuracy", "acc%", 0),
     ("random_efficiency", "acc/KB", 1),
-    ("random_intruder_accuracy", "intr%", 1),
-    ("random_regular_accuracy", "reg%", 1),
 ]
 
 # Header shown above each group of columns, by column name.
 GROUPS = {"offline_accuracy": "offline", "offline_efficiency": "offline", "test_set_accuracy": "offline",
-          "offline_intruder_accuracy": "offline", "offline_regular_accuracy": "offline",
           "bursts_accuracy": "online bursts", "bursts_efficiency": "online bursts",
-          "bursts_intruder_accuracy": "online bursts", "bursts_regular_accuracy": "online bursts",
           "bursts_vs_batch": "online bursts", "bursts_vs_random": "online bursts",
-          "random_accuracy": "online random", "random_efficiency": "online random",
-          "random_intruder_accuracy": "online random", "random_regular_accuracy": "online random"}
+          "random_accuracy": "online random", "random_efficiency": "online random"}
 
 # Short names for common parameter keys.
 ABBREV = {
@@ -78,17 +68,11 @@ ABBREV = {
 
 NUMERIC = {"params", "size_bytes", "offline_accuracy", "offline_efficiency", "test_set_accuracy",
            "bursts_accuracy", "bursts_efficiency", "bursts_vs_batch", "bursts_vs_random",
-           "random_accuracy", "random_efficiency", "offline_intruder_accuracy", "offline_regular_accuracy",
-           "bursts_intruder_accuracy", "bursts_regular_accuracy", "random_intruder_accuracy",
-           "random_regular_accuracy"}
+           "random_accuracy", "random_efficiency"}
 
 # Online columns compared against their offline (frozen) counterpart in the same row.
 COMPARE = {"bursts_accuracy": "offline_accuracy", "bursts_efficiency": "offline_efficiency",
-           "random_accuracy": "offline_accuracy", "random_efficiency": "offline_efficiency",
-           "bursts_intruder_accuracy": "offline_intruder_accuracy",
-           "bursts_regular_accuracy": "offline_regular_accuracy",
-           "random_intruder_accuracy": "offline_intruder_accuracy",
-           "random_regular_accuracy": "offline_regular_accuracy"}
+           "random_accuracy": "offline_accuracy", "random_efficiency": "offline_efficiency"}
 # Relative change columns: green when positive (the bursts run is more accurate), red otherwise.
 SIGNED = {"bursts_vs_batch", "bursts_vs_random"}
 GREEN, RED, RESET = "\033[32m", "\033[31m", "\033[0m"
@@ -96,7 +80,7 @@ GREEN, RED, RESET = "\033[32m", "\033[31m", "\033[0m"
 
 def format_online(value):
     """online_params as "sgd 0.0003" (plus " bn=update" / " ls=0.1" when not the default, and
-    " fast=<lr>/<decay>(<number of fast layers>)" / " prior=<rate>" / " mix=<m>" when set)."""
+    " fast=<lr>/<decay>(<number of fast layers>)" / " prior=<rate>" when set)."""
     p = json.loads(value)
     text = "%s %g" % (p.get("optimizer", "sgd"), p["learning_rate"])
     if p.get("bn_mode", "frozen") != "frozen":
@@ -107,8 +91,6 @@ def format_online(value):
         text += " fast=%g/%g(%d)" % (p["fast"]["learning_rate"], p["fast"]["decay"], len(p["fast"]["layers"]))
     if "label_prior" in p:
         text += " prior=%g" % p["label_prior"]
-    if p.get("label_prior_mix", 0):
-        text += " mix=%g" % p["label_prior_mix"]
     return text
 
 
@@ -205,10 +187,7 @@ def main():
             raise SystemExit("Unknown column '%s'. Columns: %s" % (key, ", ".join(valid)))
         rows.sort(key=lambda r: as_number(r.get(key)), reverse=True)
 
-    # Intruder/regular columns only when some row has them (sequences with intruders).
-    columns = [col for col in COLUMNS
-               if not col[0].endswith(("_intruder_accuracy", "_regular_accuracy"))
-               or any(r.get(col[0]) for r in rows)]
+    columns = list(COLUMNS)
     term_width = shutil.get_terminal_size((120, 24)).columns
     dropped = []
     while True:

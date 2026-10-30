@@ -9,3 +9,9 @@ system Python or install packages globally.
 - Dependencies are listed in `requirements.txt`. When adding a new dependency, install it into the
   venv and add it to `requirements.txt` with a pinned version.
 - `venv/` is gitignored; never commit it.
+
+# Git
+
+Do not make any changes to the git repository: no commits, no staging (`git add`), no branches,
+no pushes, no stashes, no resets, and no other git write operations. The user handles all git
+operations themselves. Read-only git commands (e.g. `git status`, `git diff`, `git log`) are fine.

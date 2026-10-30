@@ -32,15 +32,10 @@ The online settings come from the configuration's online_params:
                     only (not in the loss) log(p) is added to the logits; after predicting,
                     p = (1 - r) * p + r * onehot(true label), clamped to >= 1e-3. It learns no
                     weights: with learning_rate 0 it is a baseline that only tracks the labels.
-    label_prior_mix m (default 0), with label_prior: predict with log((1 - m) * p + m / 10), so that
-                    digits absent from the recent past are not ruled out
 Prediction always uses model.eval() (dropout off, BN running statistics); the training step has
 dropout on. There is no augmentation.
 
-The online accuracy goes to the configuration's row in results.csv (<sequence>_accuracy). If the
-sequence has intruders, the accuracy on them and on the other (regular) images goes to
-<sequence>_intruder_accuracy and <sequence>_regular_accuracy. On the random sequence these are
-the same images out of their burst context.
+The online accuracy goes to the configuration's row in results.csv (<sequence>_accuracy).
 A run whose loss becomes NaN or infinite is stopped early and recorded as "diverged".
 
 The first argument is the experiment (experiment1, experiment2, ...; or just its number).
@@ -66,7 +61,7 @@ except ImportError:  # PyTorch < 2.0
 from mnist_mlp import (FILES, SEQUENCES, build_model, config_seed, describe, get_device,
                        list_experiments, set_experiment,
                        load_configurations, load_idx, load_sequence, load_weights, params_json,
-                       predict, read_results, save_result, split_accuracy, to_tensors)
+                       predict, read_results, save_result, synchronize, to_tensors)
 
 REPORT_EVERY = 1000
 NAN_CHECK_EVERY = 100  # how often (in images) to check the loss for NaN/inf
@@ -98,9 +93,6 @@ def online_params(config):
                              % (config["name"], ", ".join(unknown) or "(none given)", ", ".join(names)))
     if "label_prior" in p and not 0 < p["label_prior"] <= 1:
         raise SystemExit("%s: online_params.label_prior must be in (0, 1]." % config["name"])
-    if "label_prior_mix" in p and ("label_prior" not in p or not 0 <= p["label_prior_mix"] <= 1):
-        raise SystemExit("%s: online_params.label_prior_mix must be in [0, 1], with label_prior."
-                         % config["name"])
     return p
 
 
@@ -119,9 +111,8 @@ def set_train_mode(model, bn_mode):
                 m.eval()
 
 
-def run(config, device, x_all, y_all, bursts, intruders, seq):
-    """One online pass over a sequence. Returns {"accuracy": %, "intruder": "..", "regular": ".."}
-    (see split_accuracy), or None if it diverged."""
+def run(config, device, x_all, y_all, bursts, seq):
+    """One online pass over a sequence. Returns the accuracy (%), or None if it diverged."""
     p = online_params(config)
     torch.manual_seed(config_seed(config))
     model = build_model(config).to(device)
@@ -147,8 +138,7 @@ def run(config, device, x_all, y_all, bursts, intruders, seq):
     prior = None
     if "label_prior" in p:
         prior = torch.full((10,), 0.1, device=device)
-        mix = p.get("label_prior_mix", 0.0)
-        print("Label prior: rate=%g, mix=%g" % (p["label_prior"], mix))
+        print("Label prior: rate=%g" % p["label_prior"])
 
     labels = y_all[seq].cpu().numpy()
     has_bursts = not (bursts == -1).all()  # the random sequence has burst = -1
@@ -159,12 +149,8 @@ def run(config, device, x_all, y_all, bursts, intruders, seq):
     with torch.no_grad():
         frozen_correct = (predict(model, x_all[seq]) == y_all[seq]).cpu().numpy()
     print("Frozen accuracy (before updates):  %6.2f%%" % (frozen_correct.mean() * 100))
-    frozen_split = split_accuracy(frozen_correct, intruders)
-    if frozen_split["intruder"]:
-        print("  intruders: %s%%  (%d images)   regular: %s%%"
-              % (frozen_split["intruder"], intruders.sum(), frozen_split["regular"]))
 
-    # Predictions and losses stay on the GPU during the loop to avoid a CPU sync on every image.
+    # Predictions and losses stay on the device during the loop to avoid a CPU sync on every image.
     predictions = torch.empty(len(seq), dtype=torch.long, device=device)
     losses = torch.empty(len(seq), device=device)
 
@@ -178,7 +164,7 @@ def run(config, device, x_all, y_all, bursts, intruders, seq):
         with torch.no_grad():
             logits = forward(x)
             if prior is not None:
-                logits = logits + ((1 - mix) * prior + mix / 10).log()
+                logits = logits + prior.log()
             predictions[t] = logits.argmax(dim=1)[0]
             if prior is not None:
                 prior.mul_(1 - p["label_prior"])
@@ -211,7 +197,7 @@ def run(config, device, x_all, y_all, bursts, intruders, seq):
             print("Image %5d  accuracy so far: %6.2f%%   last %d: %6.2f%%"
                   % (t + 1, correct.mean().item() * 100, REPORT_EVERY,
                      correct[-REPORT_EVERY:].mean().item() * 100))
-    torch.cuda.synchronize()
+    synchronize(device)
     print("Time: %.1f s" % (time.time() - start))
 
     correct = predictions.cpu().numpy() == labels
@@ -222,35 +208,20 @@ def run(config, device, x_all, y_all, bursts, intruders, seq):
         print("  first image of each burst:        %6.2f%%  (%d images)"
               % (correct[first_in_burst].mean() * 100, first_in_burst.sum()))
         print("  rest of the burst:                %6.2f%%" % (correct[~first_in_burst].mean() * 100))
-    split = split_accuracy(correct, intruders)
-    if split["intruder"]:
-        print("  intruders:                        %6s%%  (%d images; frozen %s%%)"
-              % (split["intruder"], intruders.sum(), frozen_split["intruder"]))
-        print("  regular images:                   %6s%%  (frozen %s%%)"
-              % (split["regular"], frozen_split["regular"]))
     # Baseline: always guess the previous image's label.
     print("Baseline 'repeat previous label':  %6.2f%%" % ((labels[1:] == labels[:-1]).mean() * 100))
-    return dict(split, accuracy=accuracy)
-
-
-ONLINE_COLUMNS = ("accuracy", "intruder_accuracy", "regular_accuracy")  # <sequence>_<column>
+    return accuracy
 
 
 def save_online(config, sequence, result):
-    """Store the online accuracies; if online_params changed since the last run, clear the other
-    sequence's accuracies too, since they were measured with the old settings."""
+    """Store the online accuracy; if online_params changed since the last run, clear the other
+    sequence's accuracy too, since it was measured with the old settings."""
     current = params_json(config, "online_params")
-    values = {"online_params": current}
-    if result is None:
-        values.update({"%s_%s" % (sequence, c): "diverged" for c in ONLINE_COLUMNS})
-    else:
-        values.update({sequence + "_accuracy": "%.2f" % result["accuracy"],
-                       sequence + "_intruder_accuracy": result["intruder"],
-                       sequence + "_regular_accuracy": result["regular"]})
+    values = {"online_params": current,
+              sequence + "_accuracy": "diverged" if result is None else "%.2f" % result}
     if read_results().get(config["name"], {}).get("online_params") != current:
         for s in SEQUENCES:
-            for c in ONLINE_COLUMNS:
-                values.setdefault("%s_%s" % (s, c), "")
+            values.setdefault(s + "_accuracy", "")
     save_result(config, values)
 
 
@@ -279,12 +250,12 @@ def main():
 
     summary = []
     for sequence in available_sequences(args.sequence):
-        indices, bursts, intruders = load_sequence(sequence)
+        indices, bursts = load_sequence(sequence)
         seq = torch.from_numpy(indices).to(device)
         print("\n##### Sequence '%s', length: %d #####" % (sequence, len(indices)))
         for config in configs:
             print("\n=== %s (%s) ===" % (describe(config), sequence))
-            result = run(config, device, x_all, y_all, bursts, intruders, seq)
+            result = run(config, device, x_all, y_all, bursts, seq)
             save_online(config, sequence, result)
             summary.append((config["name"], sequence, result))
 
@@ -293,9 +264,7 @@ def main():
         if result is None:
             print("%-20s %-8s diverged" % (name, sequence))
         else:
-            print("%-20s %-8s %.2f%%" % (name, sequence, result["accuracy"])
-                  + ("   intruders %s%%  regular %s%%" % (result["intruder"], result["regular"])
-                     if result["intruder"] else ""))
+            print("%-20s %-8s %.2f%%" % (name, sequence, result))
 
 
 if __name__ == "__main__":

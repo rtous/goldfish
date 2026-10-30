@@ -1,4 +1,5 @@
-"""MNIST classifier trained on the GPU, for every configuration in configurations.json.
+"""MNIST classifier, trained for every configuration in configurations.json (on the CUDA GPU, or
+the CPU if there is none).
 
 After training on the training set, the model is scored on the burst sequence (sequence.csv,
 built from test-set images) so its accuracy is directly comparable to online_mlp.py. The
@@ -18,9 +19,6 @@ training_params (configurations.json); the optional ones default to the old MLP 
     label_smoothing  default 0
     augment_shift    default 0; N = random shift of up to N pixels in x and y, training only
 A configuration's top-level "seed" (default 0) sets torch.manual_seed.
-
-When the sequence has intruders (an "intruder" column), the frozen accuracy on intruders and on
-the other (regular) images is also saved (offline_intruder_accuracy, offline_regular_accuracy).
 
 --score-only skips training: it scores the saved weights and rewrites the offline accuracy
 columns only, keeping the online results (e.g. after the sequence changed).
@@ -58,14 +56,11 @@ SEQUENCES = {"bursts": os.path.join(HERE, "sequence.csv"),
 EXPERIMENT_DIR = CONFIG_FILE = RESULTS_FILE = WEIGHTS_DIR = None
 # One row per configuration. mnist_mlp.py fills the offline columns, online_mlp.py online_params and
 # <sequence>_accuracy ("diverged" if the run diverged). offline_accuracy is the frozen model on the
-# sequence images; test_set_accuracy on the plain test set. The *_intruder_accuracy and
-# *_regular_accuracy columns split an accuracy into intruders and the other images (empty when the
-# sequence has no intruders).
+# sequence images; test_set_accuracy on the plain test set.
 RESULT_COLUMNS = [
     "configuration", "model", "model_params", "training_params", "params", "size_bytes",
-    "offline_accuracy", "offline_intruder_accuracy", "offline_regular_accuracy", "test_set_accuracy",
-    "online_params", "bursts_accuracy", "bursts_intruder_accuracy", "bursts_regular_accuracy",
-    "random_accuracy", "random_intruder_accuracy", "random_regular_accuracy",
+    "offline_accuracy", "test_set_accuracy",
+    "online_params", "bursts_accuracy", "random_accuracy",
     "updated",
 ]
 BACKGROUND = (0 - 0.1307) / 0.3081  # value of a black pixel after normalization
@@ -102,8 +97,7 @@ def to_tensors(images, labels, device):
 
 
 def load_sequence(name="bursts"):
-    """Read a sequence file: test-set image indices, the burst each position belongs to, and
-    whether it is an intruder (all False if the file has no intruder column)."""
+    """Read a sequence file: test-set image indices and the burst each position belongs to."""
     if name not in SEQUENCES:
         raise SystemExit("Unknown sequence '%s'. Available: %s" % (name, ", ".join(SEQUENCES)))
     path = SEQUENCES[name]
@@ -113,8 +107,7 @@ def load_sequence(name="bursts"):
         rows = list(csv.DictReader(f))
     indices = np.array([int(r["image_index"]) for r in rows])
     bursts = np.array([int(r["burst"]) for r in rows])
-    intruders = np.array([r.get("intruder", "0") == "1" for r in rows])
-    return indices, bursts, intruders
+    return indices, bursts
 
 
 def list_experiments():
@@ -208,10 +201,18 @@ def load_weights(model, config, device):
 
 
 def get_device():
+    """The CUDA GPU if there is one, else the CPU."""
     if not torch.cuda.is_available():
-        raise SystemExit("CUDA GPU not available - check your PyTorch install.")
+        print("No CUDA GPU: using the CPU")
+        return torch.device("cpu")
     print("Using GPU:", torch.cuda.get_device_name(0))
     return torch.device("cuda")
+
+
+def synchronize(device):
+    """Wait for queued GPU work (for timing); nothing to do on the CPU."""
+    if device.type == "cuda":
+        torch.cuda.synchronize()
 
 
 def model_size_bytes(model):
@@ -296,15 +297,7 @@ def make_optimizer(train, params):
     raise SystemExit("Unknown offline optimizer '%s' (use adam or adamw)." % name)
 
 
-def split_accuracy(correct, intruders):
-    """{"intruder": %, "regular": %} of a boolean array, as "97.12" strings; "" without intruders."""
-    if not intruders.any():
-        return {"intruder": "", "regular": ""}
-    return {"intruder": "%.2f" % (correct[intruders].mean() * 100),
-            "regular": "%.2f" % (correct[~intruders].mean() * 100)}
-
-
-def score(model, config, x_test, y_test, seq, intruders):
+def score(model, config, x_test, y_test, seq):
     """Score the frozen model on the plain test set and the sequence; return the offline columns."""
     model.eval()
     with torch.no_grad():
@@ -314,10 +307,6 @@ def score(model, config, x_test, y_test, seq, intruders):
     on_seq = correct[seq].cpu().numpy()
     accuracy = on_seq.mean() * 100
     print("Sequence accuracy:  %.2f%%  (%d images, comparable to online_mlp.py)" % (accuracy, len(seq)))
-    split = split_accuracy(on_seq, intruders)
-    if split["intruder"]:
-        print("  intruders: %s%%  (%d images)   regular: %s%%"
-              % (split["intruder"], intruders.sum(), split["regular"]))
     report = size_report(model, accuracy)
     values = {
         "model": config["model"],
@@ -326,23 +315,21 @@ def score(model, config, x_test, y_test, seq, intruders):
         "params": report["params"],
         "size_bytes": report["size"],
         "offline_accuracy": "%.2f" % accuracy,
-        "offline_intruder_accuracy": split["intruder"],
-        "offline_regular_accuracy": split["regular"],
         "test_set_accuracy": "%.2f" % set_accuracy,
     }
     return report, values
 
 
-def score_only(config, device, x_test, y_test, seq, intruders):
+def score_only(config, device, x_test, y_test, seq):
     """Rescore the saved weights without training; the online results are kept."""
     model = build_model(config).to(device)
     load_weights(model, config, device)
-    report, values = score(model, config, x_test, y_test, seq, intruders)
+    report, values = score(model, config, x_test, y_test, seq)
     save_result(config, values)
     return report
 
 
-def run(config, device, x_train, y_train, x_test, y_test, seq, intruders):
+def run(config, device, x_train, y_train, x_test, y_test, seq):
     torch.manual_seed(config_seed(config))
     train = config["training_params"]
     epochs, batch_size = train["epochs"], train["batch_size"]
@@ -365,7 +352,7 @@ def run(config, device, x_train, y_train, x_test, y_test, seq, intruders):
     for epoch in range(1, epochs + 1):
         model.train()
         perm = torch.randperm(len(x_train), device=device)
-        total_loss = torch.zeros((), device=device)  # summed on the GPU: no CPU sync per batch
+        total_loss = torch.zeros((), device=device)  # summed on the device: no CPU sync per batch
         for i in range(0, len(x_train), batch_size):
             idx = perm[i:i + batch_size]
             x = random_shift(x_train[idx], shift) if shift else x_train[idx]
@@ -377,13 +364,13 @@ def run(config, device, x_train, y_train, x_test, y_test, seq, intruders):
                 scheduler.step()
             total_loss += loss.detach() * len(idx)
         print("Epoch %2d/%d  loss: %.4f" % (epoch, epochs, total_loss.item() / len(x_train)))
-    torch.cuda.synchronize()
+    synchronize(device)
     train_time = time.time() - start
     print("Training time: %.1f s" % train_time)
     save_weights(model, config)
 
     # Testing: on the plain test set, and on each sequence (same images and order as online_mlp.py)
-    report, values = score(model, config, x_test, y_test, seq, intruders)
+    report, values = score(model, config, x_test, y_test, seq)
     # New weights: the online results of the old ones no longer apply.
     values.update({c: "" for c in RESULT_COLUMNS
                    if c == "online_params" or c.startswith(("bursts_", "random_"))})
@@ -400,10 +387,10 @@ def main():
     configs = load_configurations(args)
     device = get_device()
 
-    # The whole dataset is small (~200 MB as float32), so keep it all on the GPU.
+    # The whole dataset is small (~200 MB as float32), so keep it all on the device.
     x_train, y_train = to_tensors(load_idx(FILES["train_images"]), load_idx(FILES["train_labels"]), device)
     x_test, y_test = to_tensors(load_idx(FILES["test_images"]), load_idx(FILES["test_labels"]), device)
-    indices, _, intruders = load_sequence("bursts")
+    indices, _ = load_sequence("bursts")
     seq = torch.from_numpy(indices).to(device)
     print("Train samples:", len(x_train), " Test samples:", len(x_test), " Sequence:", len(seq))
 
@@ -411,9 +398,9 @@ def main():
     for config in configs:
         print("\n=== %s ===" % describe(config))
         if only_score:
-            report = score_only(config, device, x_test, y_test, seq, intruders)
+            report = score_only(config, device, x_test, y_test, seq)
         else:
-            report = run(config, device, x_train, y_train, x_test, y_test, seq, intruders)
+            report = run(config, device, x_train, y_train, x_test, y_test, seq)
         results.append((config["name"], report))
     print_summary(results)
 

@@ -10,8 +10,8 @@ experiments_all/
   online_mlp.py       online phase: predict each image, then one training step on it
   show_results.py     prints an experiment's results.csv as a table
   plot_results.py     plots results against model size
-  make_sequence.py    builds sequence.csv (bursts with intruders) and sequence_random.csv
-                      (same rows shuffled) from sequence_v1.csv (the first version, no intruders)
+  make_sequence.py    builds sequence.csv (bursts of 3 digits) and sequence_random.csv
+                      (the same rows shuffled: a control without locality)
   models/             mlp.py (784 -> h -> 10); cnn.py (small VGG-style CNN, used by no experiment)
   data/               MNIST (downloaded on first use)
   plots/              cross-experiment comparisons (plot_results.py with several experiments)
@@ -41,15 +41,15 @@ python3 show_results.py experiment1               # results table
 python3 show_results.py 1 bursts_accuracy         # sorted by a column
 python3 plot_results.py experiment1               # experiment1/plots/
 python3 plot_results.py 1 2                       # plots/compare_*
-python3 experiment2/plot_intruders.py             # experiment 2's extra figure
 ```
 
-Training and online runs need a CUDA GPU. `make_sequence.py` does not need to be rerun: the
-sequences are in the repository. `sequence.csv` is `sequence_v1.csv`
-(the first version, without intruders) with 10% of its positions replaced by intruders, a digit that does not appear
-in that position's burst (`--intrusion-rate`, default 0.1; `--v1` rebuilds the v1 sequence).
-Its `intruder` column is 1 for them. All experiments use it; the v1 files are kept because
-`sequence.csv` is built from them.
+Training and online runs use the CUDA GPU if there is one, else the CPU (the MLPs' online runs
+take a second or two each on a CPU). `make_sequence.py` does not need to be rerun: the
+sequences are in the repository, and its defaults rebuild them exactly. `sequence.csv` has
+10000 MNIST test images in 193 bursts; each burst uses 3 random digits and lasts 10 to 95
+images. All experiments use it. `sequence_random.csv` is only a control: the same images
+without temporal locality, to check that online gains come from the locality and not merely
+from training on more data. Real input streams are assumed to have temporal locality.
 
 ## configurations.json
 
@@ -71,8 +71,7 @@ Its `intruder` column is 1 for them. All experiments use it; the v1 files are ke
   `update` (BN in train mode on the single image). `learning_rate` 0 freezes the weights.
   Two more options (see `online_mlp.py`): `fast` (`{"learning_rate", "decay", "layers"}`; the
   listed parameters get a decaying fast part added to them, experiment 2) and `label_prior`
-  (rate of a running label prior added to the logits at prediction; learns no weights), with
-  `label_prior_mix` m (0; predict with log((1 − m) p + m / 10)) so absent digits stay possible.
+  (rate of a running label prior added to the logits at prediction; learns no weights).
 
 Weights are saved per configuration name. To try another online setting for the same model,
 add a configuration with a new name, then train it or copy the weights of an identical model.
@@ -80,17 +79,12 @@ add a configuration with a new name, then train it or copy the weights of an ide
 ## results.csv
 
 `configuration, model, model_params, training_params, params, size_bytes, offline_accuracy,
-offline_intruder_accuracy, offline_regular_accuracy, test_set_accuracy, online_params,
-bursts_accuracy, bursts_intruder_accuracy, bursts_regular_accuracy, random_accuracy,
-random_intruder_accuracy, random_regular_accuracy, updated`
+test_set_accuracy, online_params, bursts_accuracy, random_accuracy, updated`
 
 - `offline_accuracy`: the frozen model on the sequence images. It is the same for both
   sequences, which hold the same images. `test_set_accuracy`: the frozen model on the plain test set.
 - `bursts_accuracy` / `random_accuracy`: online accuracy on each sequence, or `diverged` if the
   loss became NaN/inf.
-- `*_intruder_accuracy` / `*_regular_accuracy`: the same accuracy on intruders only and on the
-  other images only; empty when the sequence has no intruders. On the random sequence they are
-  the same images out of their burst context.
 - `mnist_mlp.py` writes the offline columns and clears the online ones (with `--score-only` it
   rewrites the offline columns from the saved weights and keeps the online ones); `online_mlp.py`
   writes the online ones.

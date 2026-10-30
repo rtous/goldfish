@@ -15,7 +15,7 @@ prefixed with the experiment name and the figures go to plots/compare_* (next to
 
 Usage:
     python3 plot_results.py experiment2                    # experiment2/plots/
-    python3 plot_results.py 1 2 3                          # plots/compare_*
+    python3 plot_results.py 1 2                            # plots/compare_*
     python3 plot_results.py experiment2 --show             # also open the figures in a window
 """
 import argparse
@@ -32,7 +32,8 @@ SERIES_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300
 OFFLINE_COLOR = "#8a8985"
 TEXT, MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 ABBREV = {"hidden_size": "h", "learning_rate": "lr", "width": "c", "label_smoothing": "ls",
-          "epochs": "ep", "batch_size": "bs", "optimizer": "", "bn_mode": "bn"}
+          "epochs": "ep", "batch_size": "bs", "optimizer": "", "bn_mode": "bn",
+          "label_prior": "prior"}
 
 
 def number(value):
@@ -61,6 +62,10 @@ def short(params_text, skip=()):
         if k in skip:
             continue
         key = ABBREV.get(k, k)
+        if k == "fast":  # {"learning_rate", "decay", "layers"} -> fast=1/0.97(1 layer)
+            n = len(v["layers"])
+            parts.append("fast=%g/%g(%d layer%s)" % (v["learning_rate"], v["decay"], n, "s" * (n != 1)))
+            continue
         parts.append(str(v) if key == "" else "%s=%g" % (key, v) if isinstance(v, (int, float)) else "%s=%s" % (key, v))
     return " ".join(parts)
 

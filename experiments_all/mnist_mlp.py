@@ -19,13 +19,20 @@ training_params (configurations.json); the optional ones default to the old MLP 
     augment_shift    default 0; N = random shift of up to N pixels in x and y, training only
 A configuration's top-level "seed" (default 0) sets torch.manual_seed.
 
+When the sequence has intruders (an "intruder" column), the frozen accuracy on intruders and on
+the other (regular) images is also saved (offline_intruder_accuracy, offline_regular_accuracy).
+
+--score-only skips training: it scores the saved weights and rewrites the offline accuracy
+columns only, keeping the online results (e.g. after the sequence changed).
+
 The first argument is the experiment: a subfolder (experiment1, experiment2, ...; or just its
 number) holding configurations.json. Results and weights are written to that subfolder.
 
 Usage:
     python3 mnist_mlp.py experiment1                 # run all configurations of experiment1
-    python3 mnist_mlp.py experiment1 mlp_128 mlp_2   # run only the named configurations
-    python3 mnist_mlp.py 3 'cnn_*'                   # shell-style patterns work too
+    python3 mnist_mlp.py experiment1 mlp_128_lr0.001 mlp_2_lr0.001   # only the named configurations
+    python3 mnist_mlp.py 1 'mlp_2_*'                 # shell-style patterns work too
+    python3 mnist_mlp.py 2 --score-only              # rescore the saved weights, no training
 """
 import csv
 import datetime
@@ -51,10 +58,14 @@ SEQUENCES = {"bursts": os.path.join(HERE, "sequence.csv"),
 EXPERIMENT_DIR = CONFIG_FILE = RESULTS_FILE = WEIGHTS_DIR = None
 # One row per configuration. mnist_mlp.py fills the offline columns, online_mlp.py online_params and
 # <sequence>_accuracy ("diverged" if the run diverged). offline_accuracy is the frozen model on the
-# sequence images; test_set_accuracy on the plain test set.
+# sequence images; test_set_accuracy on the plain test set. The *_intruder_accuracy and
+# *_regular_accuracy columns split an accuracy into intruders and the other images (empty when the
+# sequence has no intruders).
 RESULT_COLUMNS = [
     "configuration", "model", "model_params", "training_params", "params", "size_bytes",
-    "offline_accuracy", "test_set_accuracy", "online_params", "bursts_accuracy", "random_accuracy",
+    "offline_accuracy", "offline_intruder_accuracy", "offline_regular_accuracy", "test_set_accuracy",
+    "online_params", "bursts_accuracy", "bursts_intruder_accuracy", "bursts_regular_accuracy",
+    "random_accuracy", "random_intruder_accuracy", "random_regular_accuracy",
     "updated",
 ]
 BACKGROUND = (0 - 0.1307) / 0.3081  # value of a black pixel after normalization
@@ -91,7 +102,8 @@ def to_tensors(images, labels, device):
 
 
 def load_sequence(name="bursts"):
-    """Read a sequence file: test-set image indices and the burst each position belongs to."""
+    """Read a sequence file: test-set image indices, the burst each position belongs to, and
+    whether it is an intruder (all False if the file has no intruder column)."""
     if name not in SEQUENCES:
         raise SystemExit("Unknown sequence '%s'. Available: %s" % (name, ", ".join(SEQUENCES)))
     path = SEQUENCES[name]
@@ -101,7 +113,8 @@ def load_sequence(name="bursts"):
         rows = list(csv.DictReader(f))
     indices = np.array([int(r["image_index"]) for r in rows])
     bursts = np.array([int(r["burst"]) for r in rows])
-    return indices, bursts
+    intruders = np.array([r.get("intruder", "0") == "1" for r in rows])
+    return indices, bursts, intruders
 
 
 def list_experiments():
@@ -283,7 +296,53 @@ def make_optimizer(train, params):
     raise SystemExit("Unknown offline optimizer '%s' (use adam or adamw)." % name)
 
 
-def run(config, device, x_train, y_train, x_test, y_test, seq):
+def split_accuracy(correct, intruders):
+    """{"intruder": %, "regular": %} of a boolean array, as "97.12" strings; "" without intruders."""
+    if not intruders.any():
+        return {"intruder": "", "regular": ""}
+    return {"intruder": "%.2f" % (correct[intruders].mean() * 100),
+            "regular": "%.2f" % (correct[~intruders].mean() * 100)}
+
+
+def score(model, config, x_test, y_test, seq, intruders):
+    """Score the frozen model on the plain test set and the sequence; return the offline columns."""
+    model.eval()
+    with torch.no_grad():
+        correct = predict(model, x_test) == y_test
+    set_accuracy = correct.float().mean().item() * 100
+    print("Test-set accuracy:  %.2f%%  (%d images)" % (set_accuracy, len(x_test)))
+    on_seq = correct[seq].cpu().numpy()
+    accuracy = on_seq.mean() * 100
+    print("Sequence accuracy:  %.2f%%  (%d images, comparable to online_mlp.py)" % (accuracy, len(seq)))
+    split = split_accuracy(on_seq, intruders)
+    if split["intruder"]:
+        print("  intruders: %s%%  (%d images)   regular: %s%%"
+              % (split["intruder"], intruders.sum(), split["regular"]))
+    report = size_report(model, accuracy)
+    values = {
+        "model": config["model"],
+        "model_params": params_json(config, "model_params"),
+        "training_params": params_json(config, "training_params"),
+        "params": report["params"],
+        "size_bytes": report["size"],
+        "offline_accuracy": "%.2f" % accuracy,
+        "offline_intruder_accuracy": split["intruder"],
+        "offline_regular_accuracy": split["regular"],
+        "test_set_accuracy": "%.2f" % set_accuracy,
+    }
+    return report, values
+
+
+def score_only(config, device, x_test, y_test, seq, intruders):
+    """Rescore the saved weights without training; the online results are kept."""
+    model = build_model(config).to(device)
+    load_weights(model, config, device)
+    report, values = score(model, config, x_test, y_test, seq, intruders)
+    save_result(config, values)
+    return report
+
+
+def run(config, device, x_train, y_train, x_test, y_test, seq, intruders):
     torch.manual_seed(config_seed(config))
     train = config["training_params"]
     epochs, batch_size = train["epochs"], train["batch_size"]
@@ -324,45 +383,38 @@ def run(config, device, x_train, y_train, x_test, y_test, seq):
     save_weights(model, config)
 
     # Testing: on the plain test set, and on each sequence (same images and order as online_mlp.py)
-    model.eval()
-    with torch.no_grad():
-        correct = predict(model, x_test) == y_test
-    set_accuracy = correct.float().mean().item() * 100
-    print("Test-set accuracy:  %.2f%%  (%d images)" % (set_accuracy, len(x_test)))
-    accuracy = correct[seq].float().mean().item() * 100
-    print("Sequence accuracy:  %.2f%%  (%d images, comparable to online_mlp.py)" % (accuracy, len(seq)))
-    report = size_report(model, accuracy)
-    save_result(config, {
-        "model": config["model"],
-        "model_params": params_json(config, "model_params"),
-        "training_params": params_json(config, "training_params"),
-        "params": report["params"],
-        "size_bytes": report["size"],
-        "offline_accuracy": "%.2f" % accuracy,
-        "test_set_accuracy": "%.2f" % set_accuracy,
-        # New weights: the online results of the old ones no longer apply.
-        "online_params": "", "bursts_accuracy": "", "random_accuracy": "",
-    })
+    report, values = score(model, config, x_test, y_test, seq, intruders)
+    # New weights: the online results of the old ones no longer apply.
+    values.update({c: "" for c in RESULT_COLUMNS
+                   if c == "online_params" or c.startswith(("bursts_", "random_"))})
+    save_result(config, values)
     return report
 
 
 def main():
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
         raise SystemExit(__doc__.strip() + "\n\nExperiments: " + ", ".join(list_experiments()))
+    args = [a for a in sys.argv[2:] if a != "--score-only"]
+    only_score = len(args) < len(sys.argv) - 2
     set_experiment(sys.argv[1])
-    configs = load_configurations(sys.argv[2:])
+    configs = load_configurations(args)
     device = get_device()
 
     # The whole dataset is small (~200 MB as float32), so keep it all on the GPU.
     x_train, y_train = to_tensors(load_idx(FILES["train_images"]), load_idx(FILES["train_labels"]), device)
     x_test, y_test = to_tensors(load_idx(FILES["test_images"]), load_idx(FILES["test_labels"]), device)
-    seq = torch.from_numpy(load_sequence("bursts")[0]).to(device)
+    indices, _, intruders = load_sequence("bursts")
+    seq = torch.from_numpy(indices).to(device)
     print("Train samples:", len(x_train), " Test samples:", len(x_test), " Sequence:", len(seq))
 
     results = []
     for config in configs:
         print("\n=== %s ===" % describe(config))
-        results.append((config["name"], run(config, device, x_train, y_train, x_test, y_test, seq)))
+        if only_score:
+            report = score_only(config, device, x_test, y_test, seq, intruders)
+        else:
+            report = run(config, device, x_train, y_train, x_test, y_test, seq, intruders)
+        results.append((config["name"], report))
     print_summary(results)
 
 

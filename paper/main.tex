@@ -29,6 +29,7 @@ A shuffled copy of the same stream serves as a control: it checks that the onlin
 With plain SGD, small models trained online classify the bursty stream more accurately than their frozen offline version, and the gain over the shuffled stream grows as the model shrinks and as the online learning rate increases.
 For the smallest model (6.2\,KB), online learning raises accuracy from 64.3\% to 70.7\%, while on the shuffled stream it stays at 63.7\%.
 Splitting the weights into slow and fast parts helps when the fast part is only the output bias, which raises the smallest model to 76.9\%, but a running label prior that learns no weights does better (77.7\%).
+Fast parts on whole layers help much less.
 In this stream the locality is only in the labels, which favors methods that track the recent labels.
 \end{abstract}
 
@@ -66,7 +67,7 @@ Our setting reverses the goal: we accept forgetting and ask whether it can be us
 Hinton and Plaut \cite{hinton1987using} added to each connection a fast weight that learns quickly and decays, on top of a slow weight, to recover old memories after interference.
 Complementary learning systems theory \cite{mcclelland1995there} explains the division between a fast-learning hippocampus and a slow-learning neocortex by the need to learn new experiences without overwriting old knowledge.
 Fast weights in recurrent networks \cite{ba2016using} store recent hidden states in a decaying outer-product memory.
-Experiment~2 uses the formulation of \cite{hinton1987using}, with the fast part meant to track the current context and forget it.
+Experiment~2 uses their formulation but restricts the fast weights to a subset of the layers, and its fast part tracks the current context rather than restoring old associations.
 
 \paragraph{Test time adaptation.}
 Several methods update a model while it is used, for example with a self supervised task \cite{sun2020test} or by minimizing the entropy of the predictions \cite{wang2021tent}.
@@ -209,37 +210,61 @@ F &\leftarrow \lambda F - \eta_\text{fast}\, g,
 with $F$ starting at zero.
 The fast part is a decaying sum of recent gradients: it follows the current burst and forgets it within about $1/(1-\lambda)$ images.
 
-We compare four online variants, on MLPs with $h \in \{128, 8, 4, 2\}$:
+We compare six online variants, on MLPs with $h \in \{128, 8, 4, 2\}$.
+The four fast variants vary which connections carry a fast weight, from the output bias alone to every connection.
 \begin{itemize}
   \item \emph{sgd}: plain SGD, $\eta_\text{slow} = 0.001$, no fast part (the best setting of Experiment~1);
   \item \emph{fast bias}: $\eta_\text{slow} = 0.001$, with a fast part on the output bias only ($\eta_\text{fast} = 1$, $\lambda = 0.97$), which adds 10 values;
+  \item \emph{fast out}: $\eta_\text{slow} = 0.001$, with a fast part on the output layer, weights and bias ($\eta_\text{fast} = 0.003$, $\lambda = 0.97$), which adds $10h + 10$ values;
+  \item \emph{fast hidden}: $\eta_\text{slow} = 0.001$, with a fast part on the first layer, weights and bias ($\eta_\text{fast} = 0.003$, $\lambda = 0.97$), which adds $785h$ values;
   \item \emph{fast all}: $\eta_\text{slow} = 0.001$, with a fast part on every weight and bias ($\eta_\text{fast} = 0.003$, $\lambda = 0.99$), which doubles the model;
   \item \emph{label prior}: frozen weights and a running estimate $p$ of the label frequencies, $p \leftarrow 0.9\,p + 0.1\,\text{onehot}(y)$ after each prediction, starting uniform and kept $\geq 10^{-3}$. Prediction adds $\log p$ to the logits, so digits absent from the recent past become very unlikely. It learns no weights and adds 10 values.
 \end{itemize}
 The label prior is a baseline that exploits exactly the locality in the labels and nothing else.
 The fast-part hyperparameters were tuned on the same stream they are scored on.
+For fast out and fast hidden we searched $\eta_\text{fast} \in \{0.003, 0.01, 0.03, 0.1, 0.3, 1\}$ and $\lambda \in \{0.97, 0.99\}$ and kept the setting with the best mean online gain over the four sizes.
+Both chose $\eta_\text{fast} = 0.003$, the smallest value in the grid; the gain fell steadily as $\eta_\text{fast}$ grew.
 As a ceiling, we also score an oracle: the frozen model with its prediction restricted to the digits of the current burst, which it knows in advance.
 
-Table~\ref{tab:exp2} gives the results, and Figure~\ref{fig:exp2} shows the online gain and the locality effect against model size.
+Table~\ref{tab:exp2} gives the online gain, Table~\ref{tab:exp2loc} the locality effect and the change on the shuffled control, and Figure~\ref{fig:exp2} shows the online gain and the locality effect against model size.
 
 \begin{table}[t]
 \centering
 \small
-\setlength{\tabcolsep}{2.5pt}
-\caption{Experiment 2: online gain on the bursty stream (bursts minus frozen), locality effect (bursts minus random) and change on the shuffled stream (random minus frozen) for the four variants, in pp. The oracle restricts the frozen model to the digits of the current burst.}
+\caption{Experiment 2: online gain on the bursty stream (bursts minus frozen) for the six variants, in pp. The oracle restricts the frozen model to the digits of the current burst.}
 \label{tab:exp2}
-\begin{tabular}{r rrrrr rrrr rrrr}
+\begin{tabular}{rr rrrrrr r}
 \toprule
- & \multicolumn{5}{c}{online gain} & \multicolumn{4}{c}{locality effect} & \multicolumn{4}{c}{shuffled stream} \\
-\cmidrule(lr){2-6} \cmidrule(lr){7-10} \cmidrule(lr){11-14}
-$h$ & sgd & prior & f.\ bias & f.\ all & oracle & sgd & prior & f.\ bias & f.\ all & sgd & prior & f.\ bias & f.\ all \\
+$h$ & frozen & sgd & prior & f.\ bias & f.\ out & f.\ hidden & f.\ all & oracle \\
 \midrule
-128 & $+0.19$ & $+0.80$ & $+0.30$ & $+0.17$ & $+1.45$ & $-0.05$ & $+1.22$ & $+0.09$ & $+0.34$ & $+0.24$ & $-0.42$ & $+0.21$ & $-0.17$ \\
-8   & $+1.36$ & $+2.76$ & $+1.83$ & $+1.34$ & $+4.83$ & $+1.49$ & $+4.78$ & $+2.46$ & $+3.63$ & $-0.13$ & $-2.02$ & $-0.63$ & $-2.29$ \\
-4   & $+2.30$ & $+5.17$ & $+3.51$ & $+2.39$ & $+8.86$ & $+3.69$ & $+9.83$ & $+6.31$ & $+7.77$ & $-1.39$ & $-4.66$ & $-2.80$ & $-5.38$ \\
-2   & $+6.44$ & $+13.43$ & $+12.66$ & $+7.92$ & $+21.48$ & $+6.99$ & $+24.00$ & $+19.98$ & $+14.38$ & $-0.55$ & $-10.57$ & $-7.32$ & $-6.46$ \\
+128 & 97.86 & $+0.19$ & $+0.80$ & $+0.30$ & $+0.39$ & $+0.27$ & $+0.17$ & $+1.45$ \\
+8   & 92.59 & $+1.36$ & $+2.76$ & $+1.83$ & $+1.51$ & $+1.68$ & $+1.34$ & $+4.83$ \\
+4   & 85.85 & $+2.30$ & $+5.17$ & $+3.51$ & $+2.48$ & $+2.50$ & $+2.39$ & $+8.86$ \\
+2   & 64.27 & $+6.44$ & $+13.43$ & $+12.66$ & $+8.34$ & $+6.49$ & $+7.92$ & $+21.48$ \\
 \bottomrule
 \end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\caption{Experiment 2: locality effect (bursts minus random) and change on the shuffled control (random minus frozen) for the six variants, in pp.}
+\label{tab:exp2loc}
+\begin{tabular}{r rrrrrr rrrrrr}
+\toprule
+ & \multicolumn{6}{c}{locality effect} & \multicolumn{6}{c}{shuffled control} \\
+\cmidrule(lr){2-7} \cmidrule(lr){8-13}
+$h$ & sgd & prior & bias & out & hid. & all & sgd & prior & bias & out & hid. & all \\
+\midrule
+128 & $-0.05$ & $+1.22$ & $+0.09$ & $+0.17$ & $+0.04$ & $+0.34$ & $+0.24$ & $-0.42$ & $+0.21$ & $+0.22$ & $+0.23$ & $-0.17$ \\
+8   & $+1.49$ & $+4.78$ & $+2.46$ & $+2.82$ & $+2.09$ & $+3.63$ & $-0.13$ & $-2.02$ & $-0.63$ & $-1.31$ & $-0.41$ & $-2.29$ \\
+4   & $+3.69$ & $+9.83$ & $+6.31$ & $+6.11$ & $+4.53$ & $+7.77$ & $-1.39$ & $-4.66$ & $-2.80$ & $-3.63$ & $-2.03$ & $-5.38$ \\
+2   & $+6.99$ & $+24.00$ & $+19.98$ & $+13.05$ & $+7.68$ & $+14.38$ & $-0.55$ & $-10.57$ & $-7.32$ & $-4.71$ & $-1.19$ & $-6.46$ \\
+\bottomrule
+\end{tabular}
+\par\smallskip
+\footnotesize bias, out, hid., all: fast bias, fast out, fast hidden, fast all.
 \end{table}
 
 \begin{figure}[t]
@@ -251,9 +276,13 @@ $h$ & sgd & prior & f.\ bias & f.\ all & oracle & sgd & prior & f.\ bias & f.\ a
 
 The label prior gains most at every size ($+13.43$\,pp for $h=2$, 63\% of the oracle's $+21.48$), without learning any weights.
 A fast output bias is second at every size and comes close to the prior for $h=2$ ($+12.66$\,pp), nearly double plain SGD ($+6.44$\,pp).
-Making the whole network fast barely improves on plain SGD ($+7.92$ against $+6.44$\,pp for $h=2$, level at the other sizes), and it doubles the model.
+Fast parts on whole layers gain much less.
+A fast output layer gains $+8.34$\,pp for $h=2$, about a third of the way from plain SGD to the fast bias, and is level with plain SGD for $h=4$ and $h=8$.
+Its fast learning rate had to be over 300 times smaller than the bias's, because larger rates on the output weights hurt at every size.
+A fast first layer is level with plain SGD for $h=2$ ($+6.49$\,pp) and slightly above it for $h=8$ and $h=4$.
+Making the whole network fast is level with the fast output layer ($+7.92$\,pp for $h=2$), and it doubles the model.
 
-On the shuffled control every variant ends up at or below the frozen model for $h \leq 8$ (for $h=2$: label prior $-10.57$\,pp, fast variants $-6.5$ to $-7.3$\,pp, plain SGD $-0.55$\,pp), so their gains on the bursty stream come from its temporal locality and not from the extra training.
+On the shuffled control every variant ends up at or below the frozen model for $h \leq 8$ (for $h=2$: label prior $-10.57$\,pp, fast variants $-1.19$ to $-7.32$\,pp, plain SGD $-0.55$\,pp), so their gains on the bursty stream come from its temporal locality and not from the extra training.
 The prior depends on locality most, since it nearly rules out the digits it has not seen recently.
 
 \section{Discussion}
@@ -269,8 +298,10 @@ It shows that every way of exploiting the burst more strongly, from a faster lea
 
 The strength of the label prior says something about the stream rather than about fast weights.
 The images of a burst share only their labels, so the most useful thing to remember about the recent past is which digits are active.
-A fast output bias can learn this, and that is what it does best; a fast copy of the whole network has more to learn and gains less.
+A fast output bias can learn this with a large fast learning rate, and that is what it does best.
+Fast parts on weights need a much smaller rate, and they gain less whether they sit in the output layer, the first layer or both.
 A stream whose locality is also in the inputs would be a fairer test of fast weights, because a label prior cannot exploit it.
+A fast first layer is the natural variant to test there, since a shared input distortion would have to be absorbed in the first layer.
 
 The results also have clear limits.
 The task is MNIST and the stream is synthetic, with an idealized form of locality: bursts with sharp boundaries and only three classes each.
@@ -285,6 +316,7 @@ Small MLPs trained online at inference time exploit the temporal locality of the
 Below some model size they become more accurate than their frozen offline version, and the advantage is tied to the order of the inputs.
 The effect grows as the model shrinks and as the online learning rate increases, and the shuffled control confirms that it comes from temporal locality and not from training on more data.
 A fast output bias on top of slow weights nearly doubles the gain of plain SGD for the smallest model, but a running label prior without any learning does better, because the locality of the stream is in the labels.
+Fast parts on whole layers gain much less than the fast bias.
 
 Next steps include streams with locality in the inputs (for example one shared distortion per burst), repeating the runs with several seeds, tuning on separate streams, varying the burst length and the number of classes per burst, testing streams with natural locality (for example video) and other architectures, and replacing the true labels with weaker feedback.
 

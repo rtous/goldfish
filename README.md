@@ -23,4 +23,4 @@ accuracy on the shuffled stream.
 | experiment | question | answer so far |
 |---|---|---|
 | [1](experiments_all/experiment1/README.md) | Do small MLPs exploit temporal locality with plain online SGD, and at which learning rate? | yes, for small models: +6.4 pp over the frozen model at h = 2 (lr 0.001); the locality effect grows as the model shrinks and the learning rate rises, but at lr 0.01 every model ends up below the frozen one |
-| [2](experiments_all/experiment2/README.md) | Do two time scales (slow + fast weights) exploit it better? | a fast output bias nearly doubles plain SGD's gain at h = 2 (+12.7 vs +6.4 pp), but a label prior that learns no weights gains most (+13.4 pp); making the whole network fast barely beats plain SGD and doubles the model |
+| [2](experiments_all/experiment2/README.md) | Do two time scales (slow + fast weights) exploit it better? | a fast output bias nearly doubles plain SGD's gain at h = 2 (+12.7 vs +6.4 pp) and a label prior that learns no weights gains most (+13.4 pp), while fast parts on the output layer, the first layer or every layer gain much less (+6.5 to +8.3 pp) |

@@ -25,7 +25,7 @@ import os
 
 import matplotlib
 
-from mnist_mlp import HERE, experiment_dir, list_experiments
+from mnist_mlp import HERE, experiment_dir, fast_layers, list_experiments
 
 # Categorical slots in fixed order (CVD-checked for adjacent lines), and recessive ink.
 SERIES_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
@@ -62,9 +62,8 @@ def short(params_text, skip=()):
         if k in skip:
             continue
         key = ABBREV.get(k, k)
-        if k == "fast":  # {"learning_rate", "decay", "layers"} -> fast=1/0.97(1 layer)
-            n = len(v["layers"])
-            parts.append("fast=%g/%g(%d layer%s)" % (v["learning_rate"], v["decay"], n, "s" * (n != 1)))
+        if k == "fast":  # {"learning_rate", "decay", "layers"} -> fast=1/0.97 on 2.bias
+            parts.append("fast=%g/%g on %s" % (v["learning_rate"], v["decay"], fast_layers(v["layers"])))
             continue
         parts.append(str(v) if key == "" else "%s=%g" % (key, v) if isinstance(v, (int, float)) else "%s=%s" % (key, v))
     return " ".join(parts)

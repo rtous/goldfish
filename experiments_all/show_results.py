@@ -22,7 +22,7 @@ import json
 import shutil
 import sys
 
-from mnist_mlp import list_experiments, load_configurations, params_json, read_results, set_experiment
+from mnist_mlp import fast_layers, list_experiments, load_configurations, params_json, read_results, set_experiment
 
 # (column, header shown, drop priority). When the table is wider than the terminal,
 # columns are dropped highest priority number first (0 = never).
@@ -80,7 +80,7 @@ GREEN, RED, RESET = "\033[32m", "\033[31m", "\033[0m"
 
 def format_online(value):
     """online_params as "sgd 0.0003" (plus " bn=update" / " ls=0.1" when not the default, and
-    " fast=<lr>/<decay>(<number of fast layers>)" / " prior=<rate>" when set)."""
+    " fast=<lr>/<decay>(<fast layers>)" / " prior=<rate>" when set)."""
     p = json.loads(value)
     text = "%s %g" % (p.get("optimizer", "sgd"), p["learning_rate"])
     if p.get("bn_mode", "frozen") != "frozen":
@@ -88,7 +88,7 @@ def format_online(value):
     if p.get("label_smoothing", 0):
         text += " ls=%g" % p["label_smoothing"]
     if "fast" in p:
-        text += " fast=%g/%g(%d)" % (p["fast"]["learning_rate"], p["fast"]["decay"], len(p["fast"]["layers"]))
+        text += " fast=%g/%g(%s)" % (p["fast"]["learning_rate"], p["fast"]["decay"], fast_layers(p["fast"]["layers"]))
     if "label_prior" in p:
         text += " prior=%g" % p["label_prior"]
     return text

@@ -232,6 +232,22 @@ def size_report(model, accuracy_pct):
     return {"accuracy": accuracy_pct, "params": n_params, "size": size, "efficiency": efficiency}
 
 
+def fast_layers(names):
+    """Short name of a list of fast parameters: a layer with both its weight and bias listed
+    becomes its index, e.g. ["2.weight", "2.bias"] -> "layer 2", ["0.weight", "0.bias",
+    "2.weight", "2.bias"] -> "layers 0+2", ["0.weight", "0.bias", "2.bias"] -> "0+2.bias"."""
+    parts = []
+    for n in names:
+        layer, _, kind = n.rpartition(".")
+        whole = kind in ("weight", "bias") and {layer + ".weight", layer + ".bias"} <= set(names)
+        part = layer if whole else n
+        if part not in parts:
+            parts.append(part)
+    if all("." not in part for part in parts):
+        return ("layer " if len(parts) == 1 else "layers ") + "+".join(parts)
+    return "+".join(parts)
+
+
 def params_json(config, key):
     return json.dumps(config.get(key, {}))
 

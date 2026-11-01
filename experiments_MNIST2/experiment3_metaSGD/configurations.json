@@ -1,0 +1,9 @@
+{
+  "sizes": [8, 4],
+  "streams": ["short", "L1000"],
+  "seed": 0,
+  "configurations": [
+    {"name": "metasgd", "method": "metasgd", "meta": {"learn_S": true, "lr": 1e-3, "meta_batch": 32, "clip": 1.0, "init_alpha": 1e-3, "init_lambda": 0.99, "eval_every": 50, "patience": 30, "val_episodes": 256, "max_minutes": 15}},
+    {"name": "metasgd_fixedS", "method": "metasgd", "meta": {"learn_S": false, "lr": 1e-3, "meta_batch": 32, "clip": 1.0, "init_alpha": 1e-3, "init_lambda": 0.99, "eval_every": 50, "patience": 30, "val_episodes": 256, "max_minutes": 15}}
+  ]
+}

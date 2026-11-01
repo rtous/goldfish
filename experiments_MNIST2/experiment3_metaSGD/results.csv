@@ -1,3 +1,9 @@
-hidden_size,frozen_mixed,frozen_mixed_random,meta_s_frozen,meta_s_test_set,mixed_test_set,meta_online_bursts,meta_online_random,gain,locality_effect,best_handtuned_variant,best_handtuned_bursts,oracle,headroom_percontext,frozen_pos1_5,frozen_pos6_20,frozen_pos21_60,frozen_pos61plus,metaS_pos1_5,metaS_pos6_20,metaS_pos21_60,metaS_pos61plus,meta_pos1_5,meta_pos6_20,meta_pos21_60,meta_pos61plus,median_alpha_0.weight,median_alpha_0.bias,median_alpha_2.weight,median_alpha_2.bias,median_lambda_0.weight,median_lambda_0.bias,median_lambda_2.weight,median_lambda_2.bias,meta_steps,meta_minutes,best_val_online,val_frozen_start
-4,64.41,64.41,64.15,65.29,64.78,66.77,62.72,2.36,4.05,fasthidden,64.57,87.51,87.31,63.18,63.79,63.59,65.20,64.09,63.48,63.46,64.76,62.27,64.85,66.10,68.08,0.000123,5.97e-05,0.000159,0.000127,0.954,0.736,0.919,0.8788,5750,34.4,65.97,64.35
-8,73.25,73.25,74.20,75.47,74.05,76.75,73.10,3.50,3.65,fasthidden,73.65,93.25,93.26,73.64,73.11,73.64,73.01,75.00,73.71,74.80,73.88,75.68,75.15,77.19,76.98,3.78e-05,1.34e-05,4.32e-05,2.73e-05,0.911,0.4446,0.7368,0.5495,12900,42.3,75.95,72.94
+config,method,h,stream,frozen,bursts,shuffled,gain,locality,pos1_10,pos11_50,pos51_200,pos201_1000,diverged
+metasgd,metasgd,8,short,73.25,75.95,72.39,2.70,3.56,72.61,75.88,76.49,,false
+metasgd,metasgd,8,L1000,74.05,77.56,73.57,3.51,3.99,75.38,75.66,77.12,77.77,false
+metasgd,metasgd,4,short,64.41,66.77,62.72,2.36,4.05,63.18,65.60,67.98,,false
+metasgd,metasgd,4,L1000,64.78,68.55,64.14,3.77,4.41,65.62,66.53,68.40,68.71,false
+metasgd_fixedS,metasgd,8,short,73.25,74.44,73.24,1.19,1.20,72.95,73.83,75.01,,false
+metasgd_fixedS,metasgd,8,L1000,74.05,75.94,73.96,1.89,1.99,74.12,74.38,75.18,76.19,false
+metasgd_fixedS,metasgd,4,short,64.41,65.48,64.17,1.07,1.31,63.64,63.52,66.88,,false
+metasgd_fixedS,metasgd,4,L1000,64.78,66.65,64.59,1.87,2.05,65.25,65.09,66.41,66.79,false

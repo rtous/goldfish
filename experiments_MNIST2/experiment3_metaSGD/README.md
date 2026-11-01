@@ -1,91 +1,55 @@
-# Experiment 3: Meta-SGD feasibility test (rotated, short bursts)
+# Experiment 3: Meta-SGD
 
-**Question.** On experiment1's rotated stream (bursts of 20-200 images), hand-tuned online
-learning gains nothing (≤ +0.4 pp), against a ceiling of about +20 pp. Can meta-learning the
-starting weights and per-parameter fast learning rates and decays (Meta-SGD, Li et al. 2017) make
-adaptation fast enough to pay within such bursts?
+**Question.** If the fast part's per-parameter learning rates and decays are meta-learned
+instead of set by hand, does online adaptation beat the frozen mixed model, including on short
+bursts where experiments 1 and 2 gain nothing?
 
-**Answer.** A little. Meta-SGD gains +2.4 pp (h = 4) and +3.5 pp (h = 8) over the frozen mixed
-model, with a positive locality effect (+4.1 and +3.7 pp), against a ceiling of +23 and +20 pp.
-It is the first method to beat the frozen model on this stream, but it reaches only 10-17% of
-the headroom.
+The update is online.py's dual rule with lr = 0 and a fast part on every parameter: predict with
+S + F, then F <- lambda * F - alpha * g. alpha and lambda are per-parameter tensors.
+`meta_train.py` learns them on episodes of 3 bursts of 20-60 training images, backpropagating
+through the whole unroll. The same checkpoint is evaluated on both streams.
 
-## Method
-
-The network predicts with S + F. S (slow) is meta-learned offline and frozen online. F starts at
-0, and after each image, with g the gradient of that image's loss at S + F:
-
-    F <- lambda * F - alpha * g,   alpha = exp(log_alpha) > 0,   lambda = sigmoid(logit_lambda)
-
-S, alpha and lambda are all meta-learned, with one alpha and one lambda per parameter.
-
-Meta-training (`meta_train.py`, MNIST training images only, 10000 held out for early stopping):
-- an episode is 3 consecutive bursts with different rotation contexts, of 20-60 random images each;
-- the inner loop is the online protocol above, starting from F = 0;
-- the meta-loss is the mean prediction loss over the episode, backpropagated through the whole
-  unroll (exact second order: the MLP's per-image gradient is written in closed form);
-- Adam lr 1e-3, 32 episodes per step, gradient norm clipped to 1;
-- initialization: S = experiment1's mixed model of the same h, alpha = 1e-3, lambda = 0.99;
-- stopping: keep the best online accuracy on 256 held-out episodes, evaluated every 50 steps.
-
-Evaluation: experiment1's `sequence_rotated.csv` and its shuffled control, image by image as in
-`online_mlp.py` (checked: same losses as an autograd loop; alpha = 0 reproduces S frozen exactly).
-
-## Results (rotated stream, accuracy %)
-
-| | h = 4 | h = 8 |
+| config | meta-learned | S |
 |---|---|---|
-| frozen mixed model (experiment1) | 64.41 | 73.25 |
-| meta S frozen (no online updates) | 64.15 | **74.20** |
-| meta-SGD online, bursts | 66.77 | 76.75 |
-| meta-SGD online, shuffled control | 62.72 | 73.10 |
-| gain over frozen mixed | **+2.36** | **+3.50** |
-| gain over meta S frozen | +2.62 | +2.55 |
-| locality effect (bursts − shuffled) | +4.05 | +3.65 |
-| best hand-tuned online, experiment1 (`fasthidden`) | 64.57 | 73.65 |
-| per-context ceiling (oracle on the stream) | 87.51 | 93.25 |
-| meta-training | 34 min, 5750 steps | 42 min, 12900 steps (60 min cap) |
+| `metasgd` | S, alpha, lambda | starts at the mixed model, then meta-learned |
+| `metasgd_fixedS` | alpha, lambda | the mixed model, fixed |
 
-Accuracy by position within the burst:
+Meta settings (both): Adam 1e-3, meta-batch 32, gradient clip 1, init alpha 1e-3 and lambda
+0.99, held-out accuracy every 50 steps, patience 30, at most 15 min per config and h. All four
+runs reached the 15 min cap (4800-5850 steps).
 
-| | 1-5 | 6-20 | 21-60 | 61+ |
+## Results
+
+Gain over frozen / locality effect (bursts - shuffled), in pp:
+
+| | short, h = 8 | short, h = 4 | L1000, h = 8 | L1000, h = 4 |
 |---|---|---|---|---|
-| h = 4, frozen mixed | 63.18 | 63.79 | 63.59 | 65.20 |
-| h = 4, meta S frozen | 64.09 | 63.48 | 63.46 | 64.76 |
-| h = 4, meta-SGD online | 62.27 | 64.85 | 66.10 | 68.08 |
-| h = 8, frozen mixed | 73.64 | 73.11 | 73.64 | 73.01 |
-| h = 8, meta S frozen | 75.00 | 73.71 | 74.80 | 73.88 |
-| h = 8, meta-SGD online | 75.68 | 75.15 | 77.19 | 76.98 |
+| frozen mixed (%) | 73.25 | 64.41 | 74.05 | 64.78 |
+| `metasgd` | +2.70 / +3.56 | +2.36 / +4.05 | +3.51 / +3.99 | +3.77 / +4.41 |
+| `metasgd_fixedS` | +1.19 / +1.20 | +1.07 / +1.31 | +1.89 / +1.99 | +1.87 / +2.05 |
 
-Median meta-learned alpha / lambda per tensor (`0` = first layer, `2` = output layer):
+Plots: `plots/summary.png`, `plots/burst_curve_short.png`, `plots/burst_curve_L1000.png`.
 
-| tensor | h = 4 alpha | h = 4 lambda | h = 8 alpha | h = 8 lambda |
-|---|---|---|---|---|
-| 0.weight | 1.2e-4 | 0.954 | 3.8e-5 | 0.911 |
-| 0.bias | 6.0e-5 | 0.736 | 1.3e-5 | 0.445 |
-| 2.weight | 1.6e-4 | 0.919 | 4.3e-5 | 0.737 |
-| 2.bias | 1.3e-4 | 0.879 | 2.7e-5 | 0.550 |
+## Findings
 
-Plot: `plots/meta_training.png` (held-out online accuracy and S frozen during meta-training).
+- Meta-SGD is the only method that gains on short bursts: +2.7 pp (h = 8) and +2.4 pp (h = 4),
+  with a positive locality effect. On L1000 it gains +3.5 and +3.8 pp, less than the best dual
+  setting there (+4.1 and +6.1 pp, experiment 2), but without losing anything on short bursts.
+- Learning S matters: with S fixed, the gain roughly halves (+1.1 to +1.9 pp). The meta-learned S
+  alone, frozen, is only -0.3 to +0.5 pp from the mixed model. So learning S mostly makes the
+  model easier to adapt, not more accurate by itself.
+- Adaptation is fast and the switching cost is small: on short bursts accuracy is 0.6-1.2 pp
+  below frozen at images 1-10, then above it from image 11 (h = 8: 72.6%, 75.9% at 11-50, 76.5%
+  at 51+), against -6 to -8 pp for `dual_f1e-2_d0.999` (experiment 2).
+- On L1000 the curve flattens after about 50 images (77.1% at 51-200, 77.8% at 201+, h = 8): the
+  meta-learned decays (median lambda 0.74 to 0.97) forget faster than a 1000-image burst needs.
+  Meta-training only saw bursts of 20-60.
 
-## Verdict
+Caveats: one seed and one meta-training run per config and h; meta-training is time-capped and
+had not converged (the old h = 8 run reached a better held-out accuracy after 40 min); the
+settings were compared on the evaluation streams.
 
-Worth a fuller look, but not as is. Meta-SGD turns a no-gain setting into a small, real gain:
-- the locality effect is positive;
-- the online model loses on the shuffled stream, so the gain comes from the bursts;
-- accuracy rises within a burst (h = 4: from 62% at images 1-5 to 68% at 61+).
+Next step: meta-train on longer episodes (or with a decay floor) so the fast part keeps learning
+through long bursts, and run it longer than 15 min.
 
-But the gain is only 10-17% of the headroom. At h = 8, about +1 pp of the +3.5 comes from the
-meta-learned S itself (74.20 vs 73.25 frozen; 75.47 vs 74.05 on the test set averaged over
-contexts): that part is extra offline training on rotated data, not adaptation. Adaptation alone
-is about +2.6 pp at both sizes. The medians of alpha all shrank from the initial 1e-3, and the
-decays of the biases and output layer shrank too, so the learned fast part is small and short-lived.
-
-Caveats: one seed, one meta-training run per size; medians hide the spread of alpha and lambda
-(some weights may be much faster than the median); meta-training episodes (3 bursts of 20-60)
-are shorter than the stream's bursts (20-200); h = 8 hit the 60 min cap while still improving
-slightly (an earlier run with less patience stopped at 11 min with +0.5 pp).
-
-**Next step.** Longer meta-training and episodes matching the stream's burst lengths. A
-fast part that can do more per image, e.g. meta-learning a small per-context input transform
-or a larger alpha on a few chosen parameters rather than on all of them.
+Previous, longer version: `git show a974b9b:experiments_MNIST2/experiment3_metaSGD/README.md`.

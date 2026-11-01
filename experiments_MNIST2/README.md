@@ -27,6 +27,7 @@ is roughly +19 to +23 pp to gain.
 | [experiment1](experiment1/README.md) | `sgd` | plain online SGD at a few learning rates | barely: at most +0.25 pp on short bursts, +0.7 (h = 8) and +1.6 pp (h = 4) on L1000 |
 | [experiment2](experiment2/README.md) | `dual` | slow + fast weights at a few settings | on L1000 yes, up to +4.1 (h = 8) and +6.1 pp (h = 4); on short bursts no (at most +0.3 pp) |
 | [experiment3_metaSGD](experiment3_metaSGD/README.md) | `metasgd` | meta-learned fast learning rates and decays | the only method that gains on short bursts (+2.7 and +2.4 pp), and +3.5 / +3.8 pp on L1000 |
+| [experiment4_surpriseGated](experiment4_surpriseGated/README.md) | `metasgd` + gate, oracle reset | does wiping F at switches help, and what could a perfect gate add? | no: the learned gate gains +0.9 to +1.8 pp (below experiment 3); an oracle reset adds at most +0.3 pp to Meta-SGD and leaves aggressive dual weights below 0 on short bursts; switches are not detectable from the loss (AUC <= 0.58) |
 
 Best configuration of each experiment side by side: `plots/compare.png` and
 `plots/compare_burst_curve_<stream>.png`.
@@ -54,17 +55,22 @@ F <- decay * F - fast_lr * g on the fast parameters.
 - `dual` `{"lr", "fast_lr", "decay", "fast_layers"}`, with `fast_layers` either `"hidden"`
   (0.weight, 0.bias) or `"all"`.
 - `metasgd` `{"meta": {...}}`: lr = 0, a fast part on every parameter, and S, fast_lr (alpha)
-  and decay (lambda) are per-parameter tensors meta-learned by `meta_train.py`.
+  and decay (lambda) are per-parameter tensors meta-learned by `meta_train.py`. With
+  `"gate": true` in the meta block, a meta-learned surprise gate also wipes F when the loss jumps
+  (experiment 4).
+- Optional on any method: `"oracle_reset": true` sets F to 0 at the first image of each burst (the
+  shuffled control at the same positions). A `metasgd` config can borrow another experiment's
+  checkpoint with `"checkpoint_from": "3", "checkpoint": "metasgd"`.
 
 ## Commands, in order (from this folder)
 
 ```
 ../venv/bin/python offline.py           # mixed models (--check: score the saved ones; 74.05 / 64.78)
-../venv/bin/python meta_train.py 3      # Meta-SGD checkpoints (about 1 h; experiment 3 only)
+../venv/bin/python meta_train.py 3      # Meta-SGD checkpoints (then 4; up to 15 min per config and h)
 ../venv/bin/python online.py 1          # every config x size x stream, bursts and shuffled
 ../venv/bin/python show_results.py 1    # table: offline, online and shuffled accuracy, acc/KB
 ../venv/bin/python plot.py 1            # plots/summary, plots/burst_curve_<stream>
-../venv/bin/python plot.py --compare 1 2 3   # plots/compare*: the best config of each experiment
+../venv/bin/python plot.py --compare 1 2 3 4 # plots/compare*: the best config of each experiment
 ```
 
 ## results.csv

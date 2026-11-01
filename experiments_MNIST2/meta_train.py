@@ -5,6 +5,14 @@ lr = 0 and a fast part on every parameter:
 alpha = exp(log_alpha) > 0, lambda = sigmoid(logit_lambda) in (0, 1). With "learn_S": false, S
 stays at the mixed model and only alpha and lambda are learned.
 
+With "gate": true (surprise-gated forgetting), a scalar gate z per image wipes F when the loss
+jumps. With m the running mean of past losses (m = loss_1 at the first image, so the first
+surprise is 0):
+    z <- sigmoid(b * (loss_t - m - c));  F <- lambda * (1 - z) * F - alpha * (1 + k * z) * g
+    m <- beta * m + (1 - beta) * loss_t
+b = softplus(raw_b), k = softplus(raw_k), beta = sigmoid(raw_beta) and c are meta-learned too,
+from init_gate_b, init_gate_c, init_gate_k and init_beta.
+
 Meta-training uses MNIST training images only (10000 held out for early stopping):
     episode     3 consecutive bursts of 20-60 random images each, consecutive contexts different
     meta-loss   mean prediction loss over the episode (each image before its update),
@@ -54,8 +62,15 @@ def grads(W, x, y, logits, pre, hid):
 
 
 class MetaSGD(torch.nn.Module):
-    def __init__(self, S, alpha, lam, learn_S):
+    def __init__(self, S, alpha, lam, learn_S, gate=None):
         super().__init__()
+        self.gate = gate is not None
+        if self.gate:  # b, c, k, beta of the surprise gate (scalars)
+            inv_softplus = lambda v: math.log(math.expm1(v))
+            self.raw_b = torch.nn.Parameter(torch.tensor(inv_softplus(gate["b"])))
+            self.c = torch.nn.Parameter(torch.tensor(float(gate["c"])))
+            self.raw_k = torch.nn.Parameter(torch.tensor(inv_softplus(gate["k"])))
+            self.raw_beta = torch.nn.Parameter(torch.tensor(math.log(gate["beta"] / (1 - gate["beta"]))))
         key = lambda n: n.replace(".", "_")
         self.S = torch.nn.ParameterDict({key(n): torch.nn.Parameter(S[n].clone(), requires_grad=learn_S) for n in NAMES})
         self.log_alpha = torch.nn.ParameterDict({key(n): torch.nn.Parameter(torch.full_like(S[n], math.log(alpha))) for n in NAMES})
@@ -67,6 +82,10 @@ class MetaSGD(torch.nn.Module):
         return ({n: self.S[key(n)] for n in NAMES}, {n: self.log_alpha[key(n)].exp() for n in NAMES},
                 {n: torch.sigmoid(self.logit_lambda[key(n)]) for n in NAMES})
 
+    def gate_params(self):
+        """b, c, k and beta of the surprise gate."""
+        return F.softplus(self.raw_b), self.c, F.softplus(self.raw_k), torch.sigmoid(self.raw_beta)
+
     def unroll(self, x, y, mask, alpha_scale=1.0):
         """The online rule over E episodes (x [E, T, 784], y and mask [E, T]; padded positions make
         no update). Returns per-image losses and correctness, before each image's update."""
@@ -74,6 +93,9 @@ class MetaSGD(torch.nn.Module):
         E, T = y.shape
         fast = {n: torch.zeros((E,) + S[n].shape) for n in NAMES}
         losses, correct = [], []
+        if self.gate:
+            b, c, k, beta = self.gate_params()
+            m = None
         for t in range(T):
             W = {n: S[n] + fast[n] for n in NAMES}
             logits, pre, hid = forward(W, x[:, t])
@@ -81,6 +103,16 @@ class MetaSGD(torch.nn.Module):
             correct.append(logits.argmax(1) == y[:, t])
             g = grads(W, x[:, t], y[:, t], logits, pre, hid)
             keep = mask[:, t].float()
+            if self.gate:
+                loss_t = losses[-1]
+                m = loss_t if m is None else m
+                z = torch.sigmoid(b * (loss_t - m - c))  # [E]
+                for n in NAMES:
+                    shape = (E,) + (1,) * S[n].dim()
+                    step = alpha[n] * alpha_scale * (1 + k * z.view(shape)) * g[n] * keep.view(shape)
+                    fast[n] = lam[n] * (1 - z.view(shape)) * fast[n] - step
+                m = beta * m + (1 - beta) * loss_t
+                continue
             for n in NAMES:
                 step = alpha[n] * alpha_scale * g[n] * keep.view((E,) + (1,) * S[n].dim())
                 fast[n] = lam[n] * fast[n] - step
@@ -116,7 +148,9 @@ def train(cfg, h, exp_dir, seed, x_train, y_train):
     torch.manual_seed(seed)
     order = rng.permutation(len(x_train))
     holdout, pool = np.sort(order[:HOLDOUT]), np.sort(order[HOLDOUT:])
-    model = MetaSGD(load_mixed(h), m["init_alpha"], m["init_lambda"], m["learn_S"])
+    gate = {"b": m["init_gate_b"], "c": m["init_gate_c"], "k": m["init_gate_k"], "beta": m["init_beta"]} \
+        if m.get("gate") else None
+    model = MetaSGD(load_mixed(h), m["init_alpha"], m["init_lambda"], m["learn_S"], gate)
     opt = torch.optim.Adam([p for p in model.parameters() if p.requires_grad], lr=m["lr"])
     val = episodes(np.random.default_rng(seed + 1), x_train, y_train, holdout, m["val_episodes"])
 
@@ -154,9 +188,12 @@ def train(cfg, h, exp_dir, seed, x_train, y_train):
     S, alpha, lam = model.params()
     os.makedirs(os.path.join(exp_dir, "weights"), exist_ok=True)
     detach = lambda d: {n: v.detach().clone() for n, v in d.items()}
-    torch.save({"S": detach(S), "alpha": detach(alpha), "lambda": detach(lam), "steps": step,
-                "minutes": (time.time() - start) / 60, "best_val_online": best},
-               os.path.join(exp_dir, "weights", name + ".pt"))
+    checkpoint = {"S": detach(S), "alpha": detach(alpha), "lambda": detach(lam), "steps": step,
+                  "minutes": (time.time() - start) / 60, "best_val_online": best}
+    if model.gate:
+        checkpoint["gate"] = dict(zip(("b", "c", "k", "beta"), (v.item() for v in model.gate_params())))
+        print("%s gate: %s" % (name, checkpoint["gate"]), flush=True)
+    torch.save(checkpoint, os.path.join(exp_dir, "weights", name + ".pt"))
     with open(os.path.join(exp_dir, "meta_curve_%s.csv" % name), "w", newline="") as f:
         csv.writer(f).writerows([["step", "meta_loss", "val_online", "val_s_frozen", "minutes"]] + curve)
 
@@ -164,11 +201,12 @@ def train(cfg, h, exp_dir, seed, x_train, y_train):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("experiment")
-    parser.add_argument("configurations", nargs="*", help="names to train (default: every metasgd one)")
+    parser.add_argument("configurations", nargs="*",
+                        help="names to train (default: every metasgd one without checkpoint_from)")
     args = parser.parse_args()
     exp_dir = experiment_dir(args.experiment)
     config = load_config(exp_dir)
-    configs = [c for c in config["configurations"] if c["method"] == "metasgd"
+    configs = [c for c in config["configurations"] if c["method"] == "metasgd" and "checkpoint_from" not in c
                and (not args.configurations or c["name"] in args.configurations)]
     if not configs:
         raise SystemExit("No metasgd configuration to train.")

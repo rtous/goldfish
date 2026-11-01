@@ -1,0 +1,12 @@
+{
+  "sizes": [8, 4],
+  "streams": ["short", "L1000"],
+  "seed": 0,
+  "configurations": [
+    {"name": "metasgd_gated", "method": "metasgd", "meta": {"learn_S": true, "lr": 0.001, "meta_batch": 32, "clip": 1.0, "init_alpha": 0.001, "init_lambda": 0.999, "eval_every": 50, "patience": 30, "val_episodes": 256, "max_minutes": 15, "gate": true, "init_gate_b": 2.0, "init_gate_c": 1.0, "init_gate_k": 0.1, "init_beta": 0.9}},
+    {"name": "dual_f1e-2_d0.999_reset", "method": "dual", "lr": 0.0001, "fast_lr": 0.01, "decay": 0.999, "fast_layers": "hidden", "oracle_reset": true},
+    {"name": "dual_slow0_f1e-2_d0.999_reset", "method": "dual", "lr": 0, "fast_lr": 0.01, "decay": 0.999, "fast_layers": "hidden", "oracle_reset": true},
+    {"name": "metasgd_reset", "method": "metasgd", "checkpoint_from": "3", "checkpoint": "metasgd", "oracle_reset": true},
+    {"name": "metasgd", "method": "metasgd", "checkpoint_from": "3", "checkpoint": "metasgd"}
+  ]
+}

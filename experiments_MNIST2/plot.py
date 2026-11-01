@@ -5,7 +5,7 @@
                                        burst (binned, log x), one line per configuration, frozen level dashed
 --compare writes the same figures for the best configuration of each experiment (by mean gain
 over h and streams) to experiments_MNIST2/plots/compare.png/.pdf and compare_burst_curve_<stream>.
-Each method has one hue (sgd blue, dual orange, metasgd aqua); configurations of the same method
+Each method has one hue (sgd blue, dual orange, metasgd aqua, gated metasgd yellow); configurations of the same method
 get lighter to darker shades, in configuration order.
 
 Usage:
@@ -25,7 +25,12 @@ from matplotlib.patches import Patch
 
 from data import HERE, experiment_dir, load_config
 
-METHOD_COLOR = {"sgd": "#2a78d6", "dual": "#eb6834", "metasgd": "#1baf7a"}
+METHOD_COLOR = {"sgd": "#2a78d6", "dual": "#eb6834", "metasgd": "#1baf7a", "metasgd_gated": "#eda100"}
+
+
+def method_key(cfg):
+    """The color key: the method, with gated Meta-SGD as its own entry."""
+    return cfg["method"] + ("_gated" if cfg.get("meta", {}).get("gate") else "")
 INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 BIN_EDGES = {"short": np.array([1, 6, 11, 21, 51, 101, 151, 201]), "L1000": np.array([1, 6, 11, 21, 51, 101, 201, 301, 501, 701, 1001])}
 plt.rcParams.update({"font.size": 8, "axes.edgecolor": MUTED, "axes.labelcolor": INK, "xtick.color": MUTED,
@@ -49,11 +54,11 @@ def experiment_series(exp_dir):
     config, rows = load(exp_dir)
     series, by_method = [], {}
     for cfg in config["configurations"]:
-        by_method.setdefault(cfg["method"], []).append(cfg["name"])
+        by_method.setdefault(method_key(cfg), []).append(cfg["name"])
     for cfg in config["configurations"]:
-        names = by_method[cfg["method"]]
+        names = by_method[method_key(cfg)]
         t = 0.55 - 0.9 * names.index(cfg["name"]) / (len(names) - 1) if len(names) > 1 else 0
-        series.append((cfg["name"], shade(METHOD_COLOR[cfg["method"]], t), exp_dir, cfg["name"], rows))
+        series.append((cfg["name"], shade(METHOD_COLOR[method_key(cfg)], t), exp_dir, cfg["name"], rows))
     return config, series
 
 
@@ -136,7 +141,7 @@ def best(exp_dir):
         gains = [value(s[4], (s[3], h, st), "gain") for h in config["sizes"] for st in config["streams"]]
         return -np.inf if None in gains else np.mean(gains)
     s = max(series, key=mean_gain)
-    method = next(c["method"] for c in config["configurations"] if c["name"] == s[3])
+    method = method_key(next(c for c in config["configurations"] if c["name"] == s[3]))
     return config, (s[3], METHOD_COLOR[method]) + s[2:]
 
 

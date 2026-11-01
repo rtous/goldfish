@@ -9,12 +9,25 @@ the gradient of the image's cross-entropy loss at S + F:
     sgd      {"lr"}: no fast part
     dual     {"lr", "fast_lr", "decay", "fast_layers": "hidden" (0.weight, 0.bias) or "all"}
     metasgd  lr = 0, fast part on every parameter; S, fast_lr (alpha) and decay (lambda) are
-             per-parameter tensors from <experiment>/weights/<config>_h<h>.pt (meta_train.py)
+             per-parameter tensors from <experiment>/weights/<config>_h<h>.pt (meta_train.py).
+             If the checkpoint has a surprise gate (b, c, k, beta; see meta_train.py), then with
+             m the running mean of past losses:
+                 z = sigmoid(b * (loss - m - c));  F <- lambda * (1 - z) * F - alpha * (1 + k * z) * g
+                 m <- beta * m + (1 - beta) * loss
 sgd and dual start from the shared mixed model (weights/mixed_h<h>.pt, offline.py). A NaN or inf
 loss stops the run (diverged).
 
-Writes one row per config x h x stream to <experiment>/results.csv (rows not run are kept) and
-the per-position correctness on the bursts stream to curves/<config>_h<h>_<stream>.npz.
+Optional keys:
+    "oracle_reset": true       F <- 0 just before predicting the first image of each burst (an
+                               oracle: the model is told where the switches are; S is never
+                               reset). The shuffled control is reset at the same positions.
+    "checkpoint_from": "3", "checkpoint": "<name>"
+                               (metasgd) load <that experiment>/weights/<name>_h<h>.pt instead
+
+Writes one row per config x h x stream to <experiment>/results.csv (rows not run are kept) and,
+for the bursts stream, curves/<config>_h<h>_<stream>.npz: the correctness ("online"), the frozen
+model's ("frozen"), the position in the burst, the loss of each image before its update ("loss"),
+and the gate z of each image ("gate", gated configurations only).
 
 Usage:
     python online.py 1                  # every configuration of experiment1
@@ -44,35 +57,54 @@ def forward(W, x):
 
 
 def setup(cfg, h, exp_dir):
-    """Starting weights S, slow learning rate lr, and the fast part {name: (fast_lr, decay)}."""
+    """Starting weights S, slow learning rate lr, the fast part {name: (fast_lr, decay)}, and the
+    surprise gate {b, c, k, beta} (None without one)."""
     if cfg["method"] == "metasgd":
-        path = os.path.join(exp_dir, "weights", "%s_h%d.pt" % (cfg["name"], h))
+        source = experiment_dir(cfg["checkpoint_from"]) if "checkpoint_from" in cfg else exp_dir
+        path = os.path.join(source, "weights", "%s_h%d.pt" % (cfg.get("checkpoint", cfg["name"]), h))
         if not os.path.exists(path):
-            raise SystemExit("No %s: run meta_train.py %s first." % (path, os.path.basename(exp_dir)))
+            raise SystemExit("No %s: run meta_train.py %s first." % (path, os.path.basename(source)))
         ck = torch.load(path)
-        return ck["S"], 0.0, {n: (ck["alpha"][n], ck["lambda"][n]) for n in NAMES}
+        return ck["S"], 0.0, {n: (ck["alpha"][n], ck["lambda"][n]) for n in NAMES}, ck.get("gate")
     S = load_mixed(h)
     if cfg["method"] == "sgd":
-        return S, cfg["lr"], {}
+        return S, cfg["lr"], {}, None
     if cfg["method"] == "dual":
-        return S, cfg["lr"], {n: (cfg["fast_lr"], cfg["decay"]) for n in FAST_LAYERS[cfg["fast_layers"]]}
+        return S, cfg["lr"], {n: (cfg["fast_lr"], cfg["decay"]) for n in FAST_LAYERS[cfg["fast_layers"]]}, None
     raise SystemExit("%s: unknown method '%s' (sgd, dual or metasgd)." % (cfg["name"], cfg["method"]))
 
 
-def run(S, lr, fast, x, y):
-    """One online pass. Returns the correctness of each prediction, or None if it diverged."""
+def run(S, lr, fast, gate, x, y, resets=None):
+    """One online pass; resets marks the positions where F is set to 0 before predicting. Returns
+    the correctness of each prediction (None if it diverged), the gate z of each image (None
+    without a gate) and the loss of each image before its update."""
     S = {n: S[n].clone() for n in NAMES}
     Fw = {n: torch.zeros_like(S[n]) for n in fast}
     predictions = torch.empty(len(y), dtype=torch.long)
+    gates, m = (np.zeros(len(y)) if gate else None), None
+    losses = np.zeros(len(y))
     for t in range(len(y)):
+        if resets is not None and resets[t]:
+            for f in Fw.values():
+                f.zero_()
         W = {n: (S[n] + Fw[n] if n in Fw else S[n]).detach().requires_grad_() for n in NAMES}
         logits = forward(W, x[t:t + 1])
         predictions[t] = logits.argmax(1)[0]
         loss = F.cross_entropy(logits, y[t:t + 1])
         if not torch.isfinite(loss):
-            return None
+            return None, None, None
+        losses[t] = loss.item()
         grads = torch.autograd.grad(loss, [W[n] for n in NAMES])
         with torch.no_grad():
+            if gate:
+                m = loss if m is None else m
+                z = torch.sigmoid(gate["b"] * (loss - m - gate["c"]))
+                gates[t] = z.item()
+                m = gate["beta"] * m + (1 - gate["beta"]) * loss
+                for n, g in zip(NAMES, grads):
+                    rate, decay = fast[n]
+                    Fw[n] = decay * (1 - z) * Fw[n] - rate * (1 + gate["k"] * z) * g
+                continue
             for n, g in zip(NAMES, grads):
                 if lr:
                     S[n].add_(g, alpha=-lr)
@@ -82,7 +114,7 @@ def run(S, lr, fast, x, y):
                         Fw[n].mul_(decay).sub_(rate * g)
                     else:
                         Fw[n].mul_(decay).sub_(g, alpha=rate)
-    return (predictions == y).numpy()
+    return (predictions == y).numpy(), gates, losses
 
 
 def pct(correct):
@@ -153,12 +185,16 @@ def main():
             for cfg in configs:
                 start = time.time()
                 torch.manual_seed(config.get("seed", 0))
-                out = {s: run(*setup(cfg, h, exp_dir), data[s][0], data[s][1]) for s in (False, True)}
+                resets = position == 1 if cfg.get("oracle_reset") else None  # same positions for the control
+                out = {s: run(*setup(cfg, h, exp_dir), data[s][0], data[s][1], resets) for s in (False, True)}
+                gates, losses = out[False][1], out[False][2]
+                out = {s: out[s][0] for s in out}
                 row = result_row(cfg, h, stream, frozen, out[False], out[True], position)
                 rows.append(row)
                 curve = os.path.join(exp_dir, "curves", "%s_h%d_%s.npz" % (cfg["name"], h, stream))
                 if out[False] is not None:
-                    np.savez_compressed(curve, online=out[False], frozen=frozen, position=position)
+                    extra = {} if gates is None else {"gate": gates}
+                    np.savez_compressed(curve, online=out[False], frozen=frozen, position=position, loss=losses, **extra)
                 elif os.path.exists(curve):
                     os.remove(curve)
                 print("%-24s h=%d %-6s frozen %s  bursts %6s  shuffled %6s  gain %6s  locality %6s  (%.0f s)"

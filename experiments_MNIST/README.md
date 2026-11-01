@@ -1,11 +1,11 @@
-# experiments_all: code and experiments
+# experiments_MNIST: code and experiments
 
 The code, data and input sequences are shared; each experiment is a subfolder with its own
 configurations and outputs. See the [root README](../README.md) for the research question and
 each experiment's README for its setup and results.
 
 ```
-experiments_all/
+experiments_MNIST/
   mnist_mlp.py        offline training; scores the frozen model; shared helpers
   online_mlp.py       online phase: predict each image, then one training step on it
   show_results.py     prints an experiment's results.csv as a table

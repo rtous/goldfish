@@ -23,14 +23,13 @@ Many inputs that machine learning models see at inference time have strong tempo
 consecutive inputs tend to be similar and come from a small part of the input distribution.
 A model facing such inputs does not need to keep everything it knows ready at all times.
 It may be enough to remember some basic knowledge and adapt quickly to the current context.
-We study whether this allows smaller models.
-Multilayer perceptrons of decreasing size are trained offline on MNIST and then updated online, one image at a time, while they classify a stream of test images arranged in bursts of three digits.
-A shuffled copy of the same stream serves as a control: it checks that the online gains come from temporal locality and not merely from training on more data.
-With plain SGD, small models trained online classify the bursty stream more accurately than their frozen offline version, and the gain over the shuffled stream grows as the model shrinks and as the online learning rate increases.
-For the smallest model (6.2\,KB), online learning raises accuracy from 64.3\% to 70.7\%, while on the shuffled stream it stays at 63.7\%.
-Splitting the weights into slow and fast parts helps when the fast part is only the output bias, which raises the smallest model to 76.9\%, but a running label prior that learns no weights does better (77.7\%).
-Fast parts on whole layers help much less.
-In this stream the locality is only in the labels, which favors methods that track the recent labels.
+We study whether this lets small models beat their frozen offline version.
+Small multilayer perceptrons, trained offline on MNIST digits under eight rotations, classify a stream of test images arranged in bursts: every burst holds all ten digits under one rotation, so the locality is in the inputs and the recent labels carry no information.
+The models predict each image and then take one update on it.
+A shuffled copy of the same stream serves as a control.
+Plain online SGD barely beats the frozen model (at most $+0.25$ percentage points on bursts of 20 to 200 images, $+1.6$ on bursts of 1000).
+Slow and fast weights gain up to $+6.1$ points on bursts of 1000 but lose on short bursts, where each context switch costs more than the adaptation recovers.
+Meta-learning the slow weights together with per-parameter fast learning rates and decays (Meta-SGD) is the only method that also gains on short bursts ($+2.4$ to $+2.7$ points), still far from the $+19$ to $+23$ points that a model per rotation would give.
 \end{abstract}
 
 \section{Introduction}
@@ -52,9 +51,15 @@ The price is forgetting: neural networks trained sequentially lose what they lea
 This recency bias is usually treated as a problem.
 In a stream with temporal locality it may be useful, because what was seen recently is what will be seen next.
 
-This paper reports a first set of experiments on MNIST \cite{lecun1998gradient}.
-Experiment~1 checks whether small networks exploit temporal locality when they keep learning online with plain SGD, and how the online learning rate matters.
-Experiment~2 splits knowledge by time scale, with slow weights and fast weights that adapt to the current context and then fade, and compares it with a running label prior.
+This paper tests the hypothesis on MNIST \cite{lecun1998gradient}.
+The obvious stream, bursts of plain MNIST images of a few digits each, puts the locality in the labels only: the images of a burst share nothing but their digits.
+On such a stream a running estimate of the recent label frequencies, which learns no weights, beats online learning, so the stream says little about whether a network can adapt its knowledge.
+We therefore put the locality in the inputs: every burst holds all ten digits under one of eight rotations, and the labels are uniform everywhere.
+To gain, a model has to adapt to how the current inputs look, not to which labels are frequent.
+
+Experiment~1 checks whether plain online SGD beats the frozen model on two streams, with short bursts (20 to 200 images) and long ones (1000).
+Experiment~2 splits knowledge by time scale, with slow weights and fast weights that adapt to the current context and then fade.
+Experiment~3 meta-learns the slow weights together with per-parameter fast learning rates and decays (Meta-SGD \cite{li2017metasgd}).
 
 \section{Related work}
 
@@ -67,7 +72,12 @@ Our setting reverses the goal: we accept forgetting and ask whether it can be us
 Hinton and Plaut \cite{hinton1987using} added to each connection a fast weight that learns quickly and decays, on top of a slow weight, to recover old memories after interference.
 Complementary learning systems theory \cite{mcclelland1995there} explains the division between a fast-learning hippocampus and a slow-learning neocortex by the need to learn new experiences without overwriting old knowledge.
 Fast weights in recurrent networks \cite{ba2016using} store recent hidden states in a decaying outer-product memory.
-Experiment~2 uses their formulation but restricts the fast weights to a subset of the layers, and its fast part tracks the current context rather than restoring old associations.
+Experiment~2 uses the formulation of Hinton and Plaut on the first layer only, and its fast part tracks the current context rather than restoring old associations.
+
+\paragraph{Meta-learning for fast adaptation.}
+Model-agnostic meta-learning \cite{finn2017model} learns an initialization from which a few gradient steps adapt a network to a new task.
+Meta-SGD \cite{li2017metasgd} also learns a learning rate for every parameter.
+Experiment~3 meta-learns, in the same way, the slow weights and a per-parameter fast learning rate and decay, so that one gradient step per image adapts the model to the current context.
 
 \paragraph{Test time adaptation.}
 Several methods update a model while it is used, for example with a self supervised task \cite{sun2020test} or by minimizing the entropy of the predictions \cite{wang2021tent}.
@@ -80,245 +90,172 @@ We study a different route to small models that is complementary to compression.
 
 \section{Method}
 
-\subsection{Input streams}
+\subsection{Contexts and streams}
 
-The stream contains 10{,}000 positions built from MNIST test images.
-It is divided into 193 bursts of random length between 10 and 95 images (51.8 on average).
-Each burst picks 3 distinct digits at random, and every position in the burst is a random test image of one of those digits, drawn with replacement.
-The stream holds 6{,}322 distinct test images.
-As a reference for how much locality the stream has, predicting the label of the previous image is correct 32.3\% of the time.
+A context is one of 8 rotations of the image, by $k \cdot 22.5$ degrees for $k = 0, \dots, 7$ (bilinear, black outside the image), applied before normalization.
+A stream is a sequence of MNIST test images, each shown under the context of its burst.
+Every burst holds all ten digits under one context, and consecutive bursts have different contexts.
+The labels are uniform everywhere, so the recent labels carry no information.
 
-The control stream is a random permutation of the same positions.
+The \emph{short} stream has 10{,}000 positions, with every test image once in a random order, split into 88 bursts of 20 to 200 images (113.6 on average); each context starts 4 to 14 bursts.
+The \emph{L1000} stream has 80{,}000 positions, with every test image once under every context, in 80 bursts of exactly 1000 images, 10 per context.
+In L1000 every test image appears 8 times, once per rotation.
+
+Each stream has a control: a random permutation of the same positions, with each image keeping its context.
 It contains exactly the same images, so any difference in accuracy comes from their order.
-On the control stream, predicting the previous label is correct 9.9\% of the time.
 The control is not a scenario we expect in practice: we assume that the real input streams have temporal locality and are not random.
-Its only purpose is to show whether a gain from online learning comes from that locality or merely from training on more data.
-
-The images of a burst are drawn independently given their digit, so the locality of the stream is in the labels only.
+Its only purpose is to show whether a gain from online learning comes from that locality or merely from training on more data, including, in L1000, learning the repeated images.
 
 \subsection{Protocol}
 
-Each model is first trained offline on the 60{,}000 MNIST training images.
-We call this the frozen model.
-Then it processes a stream one image at a time.
+Each model is first trained offline and then processes a stream one image at a time.
 For each image, the model first predicts its label, and the prediction counts towards the online accuracy.
-Then it takes one optimization step on that single image with its true label.
+Then it takes one update on that single image with its true label.
 This assumes that the label becomes available after each prediction, as in prequential evaluation.
-Each stream starts from the same frozen weights.
+Each stream starts from the same offline weights.
 
-We report these quantities, all on the same 10{,}000 positions:
+We report these quantities, all on the same positions of a stream:
 \begin{itemize}
-  \item \emph{frozen accuracy}: the frozen model without updates (equal on both streams, since they hold the same images);
-  \item \emph{online accuracy on bursts} and \emph{online accuracy on random}: the online model on each stream;
+  \item \emph{frozen accuracy}: the offline model without updates (equal on a stream and its control, since they hold the same images under the same contexts);
+  \item \emph{online accuracy on bursts} and \emph{on the shuffled control};
   \item \emph{online gain}: online accuracy on bursts minus frozen accuracy;
-  \item \emph{locality effect}: online accuracy on bursts minus online accuracy on random.
+  \item \emph{locality effect}: online accuracy on bursts minus online accuracy on the shuffled control.
 \end{itemize}
 Differences are given in percentage points (pp).
-The online gain tells whether online learning is worth it on the bursty stream.
-The locality effect isolates the part of the gain that comes from temporal locality.
-It removes the effect of simply training more, and of seeing some test images more than once, which happens in both streams.
-Online accuracy on random minus frozen accuracy shows what online learning would give without locality, that is, the effect of the extra training alone.
+The online gain tells whether online learning is worth it.
+The locality effect isolates the part of the gain that comes from temporal locality, removing the effect of simply training more and of seeing images more than once.
 
-Model size is the memory needed to store all parameters and buffers as 32 bit floats.
-All runs use a fixed seed (0).
+\subsection{Model and baseline}
 
-\subsection{Models}
+The model is a multilayer perceptron with one hidden layer of $h$ ReLU units, $784 \rightarrow h \rightarrow 10$, with $h = 8$ (24.9\,KB as 32 bit floats) and $h = 4$ (12.5\,KB).
+The baseline is the \emph{mixed} model: the same network trained offline on the 60{,}000 training images, each sampled image shown under a context drawn at random, with Adam \cite{kingma2015adam} (learning rate 0.001, batch 128, 50 epochs, seed 0).
+On the test set, averaged over the contexts, it reaches 74.05\% ($h = 8$) and 64.78\% ($h = 4$).
+A model of the same size trained on one context only reaches 93.26\% and 87.31\% on it, so there is roughly $+19$ to $+23$\,pp to gain by adapting to the current context.
 
-The multilayer perceptron (MLP) has one hidden layer with ReLU: $784 \rightarrow h \rightarrow 10$, with $h$ between 128 and 2.
-It is trained offline with Adam \cite{kingma2015adam}, learning rate 0.001, batch size 128, 10 epochs.
-The online phase uses plain SGD without momentum.
+\subsection{Online methods}
 
-\section{Experiments}
-
-\subsection{Experiment 1: online learning rate}
-
-The first experiment updates MLPs with $h \in \{128, 16, 8, 4, 2\}$ online with SGD at four learning rates: 0.0003, 0.001, 0.003 and 0.01.
-Table~\ref{tab:exp1} gives the online gain and the locality effect, and Table~\ref{tab:exp1random} the change on the shuffled stream.
-Figures~\ref{fig:exp1acc} and~\ref{fig:exp1loc} show the results against model size.
-
-\begin{table}[t]
-\centering
-\caption{Experiment 1: MLPs with online SGD at four learning rates. Online gain (bursts minus frozen) and locality effect (bursts minus random), in pp.}
-\label{tab:exp1}
-\begin{tabular}{rrr rrrr rrrr}
-\toprule
- & & & \multicolumn{4}{c}{online gain} & \multicolumn{4}{c}{locality effect} \\
-\cmidrule(lr){4-7} \cmidrule(lr){8-11}
-$h$ & KB & frozen & 0.0003 & 0.001 & 0.003 & 0.01 & 0.0003 & 0.001 & 0.003 & 0.01 \\
-\midrule
-128 & 397.5 & 97.86 & $+0.33$ & $+0.19$ & $-0.22$ & $-2.62$ & $+0.16$ & $-0.05$ & $-0.15$ & $+0.87$ \\
-16  &  49.7 & 95.04 & $+0.25$ & $+0.37$ & $+0.25$ & $-4.22$ & $+0.05$ & $+0.19$ & $+1.38$ & $+2.49$ \\
-8   &  24.9 & 92.59 & $+0.75$ & $+1.36$ & $+0.72$ & $-2.88$ & $+0.48$ & $+1.49$ & $+2.35$ & $+4.30$ \\
-4   &  12.5 & 85.85 & $+1.38$ & $+2.30$ & $+1.59$ & $-4.28$ & $+1.49$ & $+3.69$ & $+5.55$ & $+12.58$ \\
-2   &   6.2 & 64.27 & $+4.25$ & $+6.44$ & $+6.45$ & $-4.50$ & $+2.98$ & $+6.99$ & $+10.93$ & $+11.70$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{table}[t]
-\centering
-\caption{Experiment 1: change on the shuffled stream (online accuracy on random minus frozen), in pp.}
-\label{tab:exp1random}
-\begin{tabular}{r rrrr}
-\toprule
-$h$ & 0.0003 & 0.001 & 0.003 & 0.01 \\
-\midrule
-128 & $+0.17$ & $+0.24$ & $-0.07$ & $-3.49$ \\
-16  & $+0.20$ & $+0.18$ & $-1.13$ & $-6.71$ \\
-8   & $+0.27$ & $-0.13$ & $-1.63$ & $-7.18$ \\
-4   & $-0.11$ & $-1.39$ & $-3.96$ & $-16.86$ \\
-2   & $+1.27$ & $-0.55$ & $-4.48$ & $-16.20$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/exp1_accuracy.pdf}
-\caption{Experiment 1: accuracy against model size, one panel per online learning rate.}
-\label{fig:exp1acc}
-\end{figure}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\linewidth]{figures/exp1_locality.pdf}
-\caption{Experiment 1: online gain (left) and locality effect (right) against model size, one line per online learning rate.}
-\label{fig:exp1loc}
-\end{figure}
-
-With SGD and learning rates up to 0.001, online learning improves on the frozen model at every size.
-The online gain grows as the model shrinks: 0.2 to 0.4\,pp for $h \geq 16$, and 6.44\,pp for $h=2$ at learning rate 0.001 (from 64.27\% to 70.71\%).
-On the shuffled stream the same small model stays near where it was (63.72\%), so the gain comes from the order of the inputs and not from the extra training.
-Learning rate 0.001 gives the largest online gain for $h = 16$, 8 and 4; for $h=2$, 0.003 is level with it ($+6.45$ against $+6.44$\,pp), and for $h=128$, 0.0003 is ahead ($+0.33$ against $+0.19$\,pp).
-
-The locality effect grows in two directions: as the model gets smaller and as the learning rate gets larger.
-At learning rate 0.01 it reaches 12.58\,pp for $h=4$, but there the online model is worse than the frozen one on both streams: the effect is large because accuracy on the shuffled stream collapses faster (Table~\ref{tab:exp1random}).
-Between these extremes, learning rate 0.003 matches 0.001 on bursts for $h=2$ but is 4.5\,pp below the frozen model on the shuffled control, where 0.001 is 0.6 below: a faster rate relies more on the recent past, and so more of its gain is due to locality.
-The large model ($h=128$) shows almost no locality effect at learning rates up to 0.003.
-With enough capacity, the frozen model already covers the whole distribution and there is little to gain from adapting to the current context.
-
-\subsection{Experiment 2: two time scales}
-
-The online loss only sees the current image, so plain online SGD has to trade adapting to the current burst against keeping what it knows.
-The second experiment splits knowledge by time scale \cite{hinton1987using}.
-Each chosen parameter gets a slow part $S$ and a fast part $F$, and the network uses $S + F$.
-After each image, with $g$ the gradient of the loss on that image,
+All three methods share one update.
+The network predicts with $S + F$, where $S$ starts at the mixed model and $F$ at zero.
+After each image, with $g$ the gradient of its loss at $S + F$,
 \begin{align*}
 S &\leftarrow S - \eta_\text{slow}\, g, \\
 F &\leftarrow \lambda F - \eta_\text{fast}\, g,
 \end{align*}
-with $F$ starting at zero.
+the second line only on the parameters that have a fast part.
 The fast part is a decaying sum of recent gradients: it follows the current burst and forgets it within about $1/(1-\lambda)$ images.
-
-We compare six online variants, on MLPs with $h \in \{128, 8, 4, 2\}$.
-The four fast variants vary which connections carry a fast weight, from the output bias alone to every connection.
 \begin{itemize}
-  \item \emph{sgd}: plain SGD, $\eta_\text{slow} = 0.001$, no fast part (the best setting of Experiment~1);
-  \item \emph{fast bias}: $\eta_\text{slow} = 0.001$, with a fast part on the output bias only ($\eta_\text{fast} = 1$, $\lambda = 0.97$), which adds 10 values;
-  \item \emph{fast out}: $\eta_\text{slow} = 0.001$, with a fast part on the output layer, weights and bias ($\eta_\text{fast} = 0.003$, $\lambda = 0.97$), which adds $10h + 10$ values;
-  \item \emph{fast hidden}: $\eta_\text{slow} = 0.001$, with a fast part on the first layer, weights and bias ($\eta_\text{fast} = 0.003$, $\lambda = 0.97$), which adds $785h$ values;
-  \item \emph{fast all}: $\eta_\text{slow} = 0.001$, with a fast part on every weight and bias ($\eta_\text{fast} = 0.003$, $\lambda = 0.99$), which doubles the model;
-  \item \emph{label prior}: frozen weights and a running estimate $p$ of the label frequencies, $p \leftarrow 0.9\,p + 0.1\,\text{onehot}(y)$ after each prediction, starting uniform and kept $\geq 10^{-3}$. Prediction adds $\log p$ to the logits, so digits absent from the recent past become very unlikely. It learns no weights and adds 10 values.
+  \item \emph{SGD} (Experiment~1): plain SGD, no fast part.
+  \item \emph{Slow and fast weights} (Experiment~2): a fast part on the first layer, weights and bias.
+  \item \emph{Meta-SGD} (Experiment~3): $\eta_\text{slow} = 0$ and a fast part on every parameter, with $\eta_\text{fast}$ and $\lambda$ replaced by per-parameter tensors $\alpha > 0$ and $0 < \lambda < 1$.
 \end{itemize}
-The label prior is a baseline that exploits exactly the locality in the labels and nothing else.
-The fast-part hyperparameters were tuned on the same stream they are scored on.
-For fast out and fast hidden we searched $\eta_\text{fast} \in \{0.003, 0.01, 0.03, 0.1, 0.3, 1\}$ and $\lambda \in \{0.97, 0.99\}$ and kept the setting with the best mean online gain over the four sizes.
-Both chose $\eta_\text{fast} = 0.003$, the smallest value in the grid; the gain fell steadily as $\eta_\text{fast}$ grew.
-As a ceiling, we also score an oracle: the frozen model with its prediction restricted to the digits of the current burst, which it knows in advance.
 
-Table~\ref{tab:exp2} gives the online gain, Table~\ref{tab:exp2loc} the locality effect and the change on the shuffled control, and Figure~\ref{fig:exp2} shows the online gain and the locality effect against model size.
+For Meta-SGD, $S$, $\alpha$ and $\lambda$ are meta-learned \cite{li2017metasgd} on training images only, on episodes of 3 bursts of 20 to 60 images under different contexts.
+The meta-loss is the mean prediction loss over the episode, backpropagated through the whole online unroll; the per-image gradient is written in closed form, so the meta-gradient is exact.
+Meta-training uses Adam (learning rate 0.001), 32 episodes per step, gradient clipping at norm 1, $\alpha = 10^{-3}$ and $\lambda = 0.99$ at the start, $S$ starting at the mixed model, and early stopping on 256 held-out episodes, with at most 15 minutes per model; every run reached that limit (4800 to 5850 steps).
+A second variant keeps $S$ fixed at the mixed model and learns only $\alpha$ and $\lambda$.
+The same checkpoints are evaluated on both streams.
 
-\begin{table}[t]
-\centering
-\small
-\caption{Experiment 2: online gain on the bursty stream (bursts minus frozen) for the six variants, in pp. The oracle restricts the frozen model to the digits of the current burst.}
-\label{tab:exp2}
-\begin{tabular}{rr rrrrrr r}
-\toprule
-$h$ & frozen & sgd & prior & f.\ bias & f.\ out & f.\ hidden & f.\ all & oracle \\
-\midrule
-128 & 97.86 & $+0.19$ & $+0.80$ & $+0.30$ & $+0.39$ & $+0.27$ & $+0.17$ & $+1.45$ \\
-8   & 92.59 & $+1.36$ & $+2.76$ & $+1.83$ & $+1.51$ & $+1.68$ & $+1.34$ & $+4.83$ \\
-4   & 85.85 & $+2.30$ & $+5.17$ & $+3.51$ & $+2.48$ & $+2.50$ & $+2.39$ & $+8.86$ \\
-2   & 64.27 & $+6.44$ & $+13.43$ & $+12.66$ & $+8.34$ & $+6.49$ & $+7.92$ & $+21.48$ \\
-\bottomrule
-\end{tabular}
-\end{table}
+Each method is run at a handful of settings, compared on the evaluation streams themselves.
+All runs use seed 0.
+
+\section{Experiments}
+
+Table~\ref{tab:results} gives the results of the three experiments, Figure~\ref{fig:compare} compares the best setting of each method and Figure~\ref{fig:curve} shows how accuracy evolves within a burst.
 
 \begin{table}[t]
 \centering
 \small
-\setlength{\tabcolsep}{3pt}
-\caption{Experiment 2: locality effect (bursts minus random) and change on the shuffled control (random minus frozen) for the six variants, in pp.}
-\label{tab:exp2loc}
-\begin{tabular}{r rrrrrr rrrrrr}
+\setlength{\tabcolsep}{4pt}
+\caption{Online gain (bursts minus frozen) / locality effect (bursts minus shuffled), in pp. Short: bursts of 20 to 200 images; L1000: bursts of 1000. Experiment 2: $\eta_\text{slow}$, $\eta_\text{fast}$, $\lambda$, fast part on the first layer.}
+\label{tab:results}
+\begin{tabular}{ll rrrr}
 \toprule
- & \multicolumn{6}{c}{locality effect} & \multicolumn{6}{c}{shuffled control} \\
-\cmidrule(lr){2-7} \cmidrule(lr){8-13}
-$h$ & sgd & prior & bias & out & hid. & all & sgd & prior & bias & out & hid. & all \\
+ & & \multicolumn{2}{c}{short} & \multicolumn{2}{c}{L1000} \\
+\cmidrule(lr){3-4} \cmidrule(lr){5-6}
+ & setting & $h = 8$ & $h = 4$ & $h = 8$ & $h = 4$ \\
 \midrule
-128 & $-0.05$ & $+1.22$ & $+0.09$ & $+0.17$ & $+0.04$ & $+0.34$ & $+0.24$ & $-0.42$ & $+0.21$ & $+0.22$ & $+0.23$ & $-0.17$ \\
-8   & $+1.49$ & $+4.78$ & $+2.46$ & $+2.82$ & $+2.09$ & $+3.63$ & $-0.13$ & $-2.02$ & $-0.63$ & $-1.31$ & $-0.41$ & $-2.29$ \\
-4   & $+3.69$ & $+9.83$ & $+6.31$ & $+6.11$ & $+4.53$ & $+7.77$ & $-1.39$ & $-4.66$ & $-2.80$ & $-3.63$ & $-2.03$ & $-5.38$ \\
-2   & $+6.99$ & $+24.00$ & $+19.98$ & $+13.05$ & $+7.68$ & $+14.38$ & $-0.55$ & $-10.57$ & $-7.32$ & $-4.71$ & $-1.19$ & $-6.46$ \\
+ & frozen mixed model (\%) & 73.25 & 64.41 & 74.05 & 64.78 \\
+\midrule
+1 & SGD, $\eta = 10^{-5}$ & $+0.25$ / $+0.21$ & $+0.09$ / $+0.05$ & $+0.53$ / $+0.10$ & $+0.37$ / $-0.01$ \\
+  & SGD, $\eta = 10^{-4}$ & $+0.17$ / $+0.00$ & $-0.15$ / $-0.01$ & $+0.69$ / $+0.35$ & $+0.66$ / $+0.33$ \\
+  & SGD, $\eta = 10^{-3}$ & $-2.88$ / $+0.61$ & $-2.40$ / $+0.39$ & $+0.20$ / $+2.81$ & $+1.58$ / $+3.24$ \\
+  & SGD, $\eta = 3 \cdot 10^{-3}$ & $-7.03$ / $+0.86$ & $-5.13$ / $+1.28$ & $-0.63$ / $+5.89$ & $+1.41$ / $+6.66$ \\
+\midrule
+2 & $10^{-4}$, $10^{-3}$, 0.99 & $+0.28$ / $+0.29$ & $+0.09$ / $+0.26$ & $+1.10$ / $+0.93$ & $+1.43$ / $+1.33$ \\
+  & $10^{-4}$, $3 \cdot 10^{-3}$, 0.997 & $+0.07$ / $+1.12$ & $-0.36$ / $+0.99$ & $+2.92$ / $+3.64$ & $+3.99$ / $+4.90$ \\
+  & $10^{-4}$, $10^{-2}$, 0.999 & $-3.47$ / $+2.09$ & $-3.07$ / $+2.47$ & $+4.11$ / $+8.47$ & $+6.11$ / $+10.22$ \\
+  & $0$, $10^{-2}$, 0.999 & $-3.66$ / $+2.04$ & $-3.77$ / $+3.06$ & $+2.87$ / $+8.81$ & $+3.02$ / $+9.57$ \\
+\midrule
+3 & Meta-SGD & $+2.70$ / $+3.56$ & $+2.36$ / $+4.05$ & $+3.51$ / $+3.99$ & $+3.77$ / $+4.41$ \\
+  & Meta-SGD, $S$ fixed & $+1.19$ / $+1.20$ & $+1.07$ / $+1.31$ & $+1.89$ / $+1.99$ & $+1.87$ / $+2.05$ \\
 \bottomrule
 \end{tabular}
-\par\smallskip
-\footnotesize bias, out, hid., all: fast bias, fast out, fast hidden, fast all.
 \end{table}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{figures/exp2_locality.pdf}
-\caption{Experiment 2: online gain (left) and locality effect (right) against model size, one line per variant.}
-\label{fig:exp2}
+\includegraphics[width=0.85\linewidth]{figures/ctx_compare.pdf}
+\caption{Online gain (solid) and locality effect (hatched) of the best setting of each method, chosen by mean gain over sizes and streams. Blue: SGD ($\eta = 10^{-4}$); orange: slow and fast weights ($10^{-4}$, $3 \cdot 10^{-3}$, 0.997); green: Meta-SGD.}
+\label{fig:compare}
 \end{figure}
 
-The label prior gains most at every size ($+13.43$\,pp for $h=2$, 63\% of the oracle's $+21.48$), without learning any weights.
-A fast output bias is second at every size and comes close to the prior for $h=2$ ($+12.66$\,pp), nearly double plain SGD ($+6.44$\,pp).
-Fast parts on whole layers gain much less.
-A fast output layer gains $+8.34$\,pp for $h=2$, about a third of the way from plain SGD to the fast bias, and is level with plain SGD for $h=4$ and $h=8$.
-Its fast learning rate had to be over 300 times smaller than the bias's, because larger rates on the output weights hurt at every size.
-A fast first layer is level with plain SGD for $h=2$ ($+6.49$\,pp) and slightly above it for $h=8$ and $h=4$.
-Making the whole network fast is level with the fast output layer ($+7.92$\,pp for $h=2$), and it doubles the model.
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/ctx_burst_short.pdf}
+\includegraphics[width=\linewidth]{figures/ctx_burst_L1000.pdf}
+\caption{Online accuracy against position within the burst (binned, log scale) for the settings of Figure~\ref{fig:compare}, on the short stream (top) and L1000 (bottom). Dashed: the frozen mixed model.}
+\label{fig:curve}
+\end{figure}
 
-On the shuffled control every variant ends up at or below the frozen model for $h \leq 8$ (for $h=2$: label prior $-10.57$\,pp, fast variants $-1.19$ to $-7.32$\,pp, plain SGD $-0.55$\,pp), so their gains on the bursty stream come from its temporal locality and not from the extra training.
-The prior depends on locality most, since it nearly rules out the digits it has not seen recently.
+\subsection{Experiment 1: online SGD}
+
+On the short stream, plain online SGD stays within $\pm 0.25$\,pp of the frozen model at small learning rates and loses 2 to 7\,pp at larger ones.
+On L1000 it gains at most $+0.69$\,pp ($h = 8$) and $+1.58$\,pp ($h = 4$).
+Larger learning rates have a larger locality effect (up to $+6.66$\,pp): they adapt within a burst and reach 75.6\% ($h = 8$) and 68.4\% ($h = 4$) after the 200th image at $\eta = 3 \cdot 10^{-3}$.
+But they lose most of it after each context switch, falling to 50--58\% over the first 10 images of an L1000 burst.
+With small learning rates, part of the L1000 gain is not locality: the shuffled control also beats the frozen model, by learning the repeated images.
+
+\subsection{Experiment 2: slow and fast weights}
+
+A fast first layer gains clearly on L1000: $+4.11$\,pp ($h = 8$) and $+6.11$\,pp ($h = 4$) with $\eta_\text{fast} = 10^{-2}$ and $\lambda = 0.999$, with a locality effect of $+8.47$ and $+10.22$\,pp.
+On the short stream it loses 3 to 4\,pp: accuracy falls to 56--67\% over the first 50 images of a burst and needs about 100 images to recover, longer than most short bursts.
+Settings with a smaller fast learning rate lose less after a switch but gain less on long bursts; none gains more than $+0.3$\,pp on the short stream.
+With the slow learning rate at 0 the gain on L1000 drops to $+2.9$ and $+3.0$\,pp: the slow part contributes $+1.2$ to $+3.1$\,pp, partly by learning the repeated images.
+
+\subsection{Experiment 3: Meta-SGD}
+
+Meta-SGD is the only method that gains on the short stream: $+2.70$\,pp ($h = 8$) and $+2.36$\,pp ($h = 4$), with locality effects of $+3.56$ and $+4.05$\,pp.
+Its switching cost is small: over the first 10 images of a short burst it is 0.6 to 1.2\,pp below the frozen model, and above it from the 11th image on.
+On L1000 it gains $+3.51$ and $+3.77$\,pp, less than the best fast first layer, because its accuracy stops rising after about 50 images: the meta-learned decays (median $\lambda$ between 0.74 and 0.97 depending on the layer) forget faster than a burst of 1000 needs, since meta-training only saw bursts of 20 to 60.
+Learning $S$ matters: with $S$ fixed the gain roughly halves ($+1.07$ to $+1.89$\,pp).
+Yet the meta-learned $S$ alone, frozen, is within $-0.3$ to $+0.5$\,pp of the mixed model, so learning $S$ mostly makes the model easier to adapt rather than more accurate by itself.
 
 \section{Discussion}
 
-The experiments support the hypothesis for small MLPs.
-When capacity is very limited, a model that keeps adapting to the current context classifies a stream with temporal locality better than the same model frozen, and the advantage comes from the locality: it disappears or reverses on a shuffled copy of the stream.
-The recency bias of online training, which hurts on the shuffled control, helps on the bursty one.
-Seen this way, the learning rate controls the length of the model's memory: a larger rate forgets faster and adapts faster.
-The best value should depend on how long the contexts last, which here is about 50 images.
+With the locality in the inputs, plain online SGD is not worth it: the frozen mixed model is hard to beat, even though a model per rotation would be 19 to 23\,pp more accurate.
+What decides the outcome is the cost of each context switch against the length of the context.
+Seen this way, the fast learning rate and the decay set the length of the model's memory: a faster setting adapts faster and forgets faster.
+A fast first layer that adapts strongly pays off on bursts of 1000 images, but after a switch it is worse than the frozen model for about 100 images, so it loses on bursts of 20 to 200.
+Meta-learning the fast learning rates, the decays and the slow weights produces a model that adapts within a few images and loses little at a switch, and it is the first method to gain on short bursts.
+But it captures only a small part of the headroom, and it is tied to the burst lengths it was meta-trained on.
 
 The shuffled control is not a deployment scenario: we assume that real streams have temporal locality.
-It shows that every way of exploiting the burst more strongly, from a faster learning rate to fast weights or a label prior, relies more on that locality, and would not help on a stream without it.
-
-The strength of the label prior says something about the stream rather than about fast weights.
-The images of a burst share only their labels, so the most useful thing to remember about the recent past is which digits are active.
-A fast output bias can learn this with a large fast learning rate, and that is what it does best.
-Fast parts on weights need a much smaller rate, and they gain less whether they sit in the output layer, the first layer or both.
-A stream whose locality is also in the inputs would be a fairer test of fast weights, because a label prior cannot exploit it.
-A fast first layer is the natural variant to test there, since a shared input distortion would have to be absorbed in the first layer.
+It shows that every way of exploiting the bursts more strongly, from a larger learning rate to fast weights, relies more on that locality and would not help on a stream without it.
 
 The results also have clear limits.
-The task is MNIST and the stream is synthetic, with an idealized form of locality: bursts with sharp boundaries and only three classes each.
+The task is MNIST and the stream is synthetic, with an idealized form of locality: bursts with sharp boundaries and a single rotation each.
 The online model receives the true label right after each prediction, which many applications cannot provide.
 Every result comes from a single run with seed 0, so differences below about 0.5\,pp may not be meaningful.
-The fast-weight hyperparameters of Experiment~2 were tuned on the same stream they are scored on.
-The stream draws test images with replacement, so the online model sees some images more than once; the shuffled control has the same repetitions, and the locality effect cancels this out, but the online gain does not.
+The settings were compared on the evaluation streams, so the best ones are slightly optimistic, and meta-training was limited to 15 minutes per model and had not converged.
+The L1000 stream shows every test image 8 times; the shuffled control has the same repetitions, so the locality effect cancels them, but the online gain does not.
 
 \section{Conclusion and next steps}
 
-Small MLPs trained online at inference time exploit the temporal locality of their input stream.
-Below some model size they become more accurate than their frozen offline version, and the advantage is tied to the order of the inputs.
-The effect grows as the model shrinks and as the online learning rate increases, and the shuffled control confirms that it comes from temporal locality and not from training on more data.
-A fast output bias on top of slow weights nearly doubles the gain of plain SGD for the smallest model, but a running label prior without any learning does better, because the locality of the stream is in the labels.
-Fast parts on whole layers gain much less than the fast bias.
+When the locality of a stream is in the inputs, small models gain little from plain online learning.
+Plain SGD barely beats the frozen model trained on all rotations, a fast first layer gains up to $+6.1$\,pp only when the bursts are long (1000 images), and Meta-SGD is the only method that also gains on bursts of 20 to 200 images ($+2.4$ to $+2.7$\,pp).
+The cost of a context switch, not the speed of adaptation alone, is what limits online learning on short contexts.
 
-Next steps include streams with locality in the inputs (for example one shared distortion per burst), repeating the runs with several seeds, tuning on separate streams, varying the burst length and the number of classes per burst, testing streams with natural locality (for example video) and other architectures, and replacing the true labels with weaker feedback.
+Next steps include lowering that cost (for example by resetting the fast part when the model detects a switch), meta-training on episodes as long as the bursts or with a floor on the decay, repeating the runs with several seeds, tuning on separate streams, testing streams with natural locality (for example video) and other architectures, and replacing the true labels with weaker feedback.
 
 \bibliographystyle{plainnat}
 \bibliography{references}

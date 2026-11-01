@@ -6,20 +6,23 @@ context. Under tight capacity limits, online training could then beat offline tr
 the recency bias of neural networks, usually treated as a problem, could become a benefit.
 
 The experiments test this on MNIST. Small networks are trained offline, then updated online
-(predict, then one training step per image) on a stream of 10000 test images arranged in bursts
-of 3 digits. We assume that real input streams have temporal locality like this one, not that
-they are random. A shuffled copy of the same stream is only a control: it holds the same images,
-so it tells whether the online gains come from temporal locality and not merely from training on
-more data. The key metric is the **locality effect**: online accuracy on bursts minus online
-accuracy on the shuffled stream.
+(predict, then one training step per image) on a stream of test images arranged in bursts. In
+`experiments_MNIST/` the locality is in the labels: each burst holds 3 digits. In
+`experiments_MNIST2/` it is in the inputs: each burst holds all 10 digits under one rotation, so
+tracking the recent labels does not help. We assume that real input streams have temporal
+locality like these, not that they are random. A shuffled copy of the same stream is only a
+control: it holds the same images, so it tells whether the online gains come from temporal
+locality and not merely from training on more data. Two metrics matter: the **gain** over the
+frozen offline model, and the **locality effect** (online accuracy on bursts minus online accuracy
+on the shuffled stream).
 
 ## Folders
 
 | folder | contents |
 |---|---|
 | [`experiments_MNIST/`](experiments_MNIST/README.md) | code, data and one subfolder per experiment |
-| [`experiments_MNIST2/`](experiments_MNIST2/README.md) | the same with context streams: locality in the inputs (rotated or permuted MNIST), not in the labels |
-| [`paper/`](paper/) | LaTeX draft of the paper (`main.tex`, built as `main.pdf`) |
+| [`experiments_MNIST2/`](experiments_MNIST2/README.md) | the same with context streams: locality in the inputs (rotated MNIST), not in the labels; one online loop for SGD, slow + fast weights and Meta-SGD |
+| [`paper/`](paper/) | LaTeX draft of the paper (`main.tex`, built as `main.pdf`), covering both folders |
 
 | experiment | question | answer so far |
 |---|---|---|

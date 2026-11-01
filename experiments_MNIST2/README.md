@@ -22,11 +22,14 @@ scale: per-context models (one per rotation, same size) reached 93.26% (h = 8) a
 on the test set, against 74.05% and 64.78% for the mixed model (averaged over contexts), so there
 is roughly +19 to +23 pp to gain.
 
-| experiment | method | question |
-|---|---|---|
-| [experiment1](experiment1/README.md) | `sgd` | plain online SGD at a few learning rates |
-| [experiment2](experiment2/README.md) | `dual` | slow + fast weights at a few settings |
-| [experiment3_metaSGD](experiment3_metaSGD/README.md) | `metasgd` | meta-learned fast learning rates and decays |
+| experiment | method | question | answer so far (gain over frozen) |
+|---|---|---|---|
+| [experiment1](experiment1/README.md) | `sgd` | plain online SGD at a few learning rates | barely: at most +0.25 pp on short bursts, +0.7 (h = 8) and +1.6 pp (h = 4) on L1000 |
+| [experiment2](experiment2/README.md) | `dual` | slow + fast weights at a few settings | on L1000 yes, up to +4.1 (h = 8) and +6.1 pp (h = 4); on short bursts no (at most +0.3 pp) |
+| [experiment3_metaSGD](experiment3_metaSGD/README.md) | `metasgd` | meta-learned fast learning rates and decays | the only method that gains on short bursts (+2.7 and +2.4 pp), and +3.5 / +3.8 pp on L1000 |
+
+Best configuration of each experiment side by side: `plots/compare.png` and
+`plots/compare_burst_curve_<stream>.png`.
 
 ## Configurations
 
@@ -59,7 +62,7 @@ F <- decay * F - fast_lr * g on the fast parameters.
 ../venv/bin/python offline.py           # mixed models (--check: score the saved ones; 74.05 / 64.78)
 ../venv/bin/python meta_train.py 3      # Meta-SGD checkpoints (about 1 h; experiment 3 only)
 ../venv/bin/python online.py 1          # every config x size x stream, bursts and shuffled
-../venv/bin/python show_results.py 1    # compact table
+../venv/bin/python show_results.py 1    # table: offline, online and shuffled accuracy, acc/KB
 ../venv/bin/python plot.py 1            # plots/summary, plots/burst_curve_<stream>
 ../venv/bin/python plot.py --compare 1 2 3   # plots/compare*: the best config of each experiment
 ```
@@ -80,3 +83,8 @@ One row per config x h x stream, the same columns in every experiment:
 
 `curves/<config>_h<h>_<stream>.npz` holds the per-position correctness on the bursts stream
 (online and frozen), for the plots.
+
+`show_results.py` prints `%acc offline` (frozen), `%acc online` (bursts) and
+`%acc shuffled(control)`, plus `acc/KB` (online accuracy per KB of weights: 24.9 KB at h = 8,
+12.5 KB at h = 4). Rows are sorted by gain within each stream and h. On a terminal, `%acc online`
+is bold, and green when it beats both the offline model and the control.

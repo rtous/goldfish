@@ -137,7 +137,7 @@ def best(exp_dir):
         return -np.inf if None in gains else np.mean(gains)
     s = max(series, key=mean_gain)
     method = next(c["method"] for c in config["configurations"] if c["name"] == s[3])
-    return config, ("%s: %s" % (os.path.basename(exp_dir).split("_")[0], s[3]), METHOD_COLOR[method]) + s[2:]
+    return config, (s[3], METHOD_COLOR[method]) + s[2:]
 
 
 def main():

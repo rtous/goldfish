@@ -8,7 +8,8 @@ the gradient of the image's cross-entropy loss at S + F:
     F <- decay * F - fast_lr * g       (only on the fast parameters)
     sgd      {"lr"}: no fast part
     dual     {"lr", "fast_lr", "decay", "fast_layers": "hidden" (0.weight, 0.bias) or "all"}
-    metasgd  lr = 0, fast part on every parameter; S, fast_lr (alpha) and decay (lambda) are
+    metasgd  lr = 0, a fast part on every parameter (or only on 0.weight and 0.bias if the
+             checkpoint has alpha for those only); S, fast_lr (alpha) and decay (lambda) are
              per-parameter tensors from <experiment>/weights/<config>_h<h>.pt (meta_train.py).
              If the checkpoint has a surprise gate (b, c, k, beta; see meta_train.py), then with
              m the running mean of past losses:
@@ -21,6 +22,10 @@ Optional keys:
     "oracle_reset": true       F <- 0 just before predicting the first image of each burst (an
                                oracle: the model is told where the switches are; S is never
                                reset). The shuffled control is reset at the same positions.
+    "init": "experiment5b/weights/shared_h<h>.pt"
+                               (sgd, dual) start S from these weights (relative to
+                               experiments_MNIST2, <h> = the size) instead of the mixed model; the
+                               "frozen" column and "gain" stay relative to the mixed model
     "checkpoint_from": "3", "checkpoint": "<name>"
                                (metasgd) load <that experiment>/weights/<name>_h<h>.pt instead
 
@@ -43,7 +48,7 @@ import torch
 import torch.nn.functional as F
 
 from contexts import under_every_context
-from data import experiment_dir, load_config, load_mixed, load_split, load_stream, position_in_burst
+from data import experiment_dir, load_config, load_init, load_mixed, load_split, load_stream, position_in_burst
 
 NAMES = ("0.weight", "0.bias", "2.weight", "2.bias")
 FAST_LAYERS = {"hidden": ("0.weight", "0.bias"), "all": NAMES}
@@ -65,8 +70,8 @@ def setup(cfg, h, exp_dir):
         if not os.path.exists(path):
             raise SystemExit("No %s: run meta_train.py %s first." % (path, os.path.basename(source)))
         ck = torch.load(path)
-        return ck["S"], 0.0, {n: (ck["alpha"][n], ck["lambda"][n]) for n in NAMES}, ck.get("gate")
-    S = load_mixed(h)
+        return ck["S"], 0.0, {n: (ck["alpha"][n], ck["lambda"][n]) for n in NAMES if n in ck["alpha"]}, ck.get("gate")
+    S = load_init(cfg.get("init"), h)
     if cfg["method"] == "sgd":
         return S, cfg["lr"], {}, None
     if cfg["method"] == "dual":
@@ -102,6 +107,8 @@ def run(S, lr, fast, gate, x, y, resets=None):
                 gates[t] = z.item()
                 m = gate["beta"] * m + (1 - gate["beta"]) * loss
                 for n, g in zip(NAMES, grads):
+                    if n not in Fw:
+                        continue
                     rate, decay = fast[n]
                     Fw[n] = decay * (1 - z) * Fw[n] - rate * (1 + gate["k"] * z) * g
                 continue

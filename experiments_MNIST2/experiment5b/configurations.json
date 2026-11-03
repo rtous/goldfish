@@ -1,0 +1,10 @@
+{
+  "sizes": [8, 4],
+  "streams": ["short", "L1000"],
+  "seed": 0,
+  "configurations": [
+    {"name": "frozen_shared", "method": "dual", "lr": 0, "fast_lr": 0, "decay": 0.999, "fast_layers": "hidden", "init": "experiment5b/weights/shared_h<h>.pt"},
+    {"name": "dual_shared", "method": "dual", "lr": 0, "fast_lr": 1e-2, "decay": 0.999, "fast_layers": "hidden", "init": "experiment5b/weights/shared_h<h>.pt"},
+    {"name": "metasgd_shared", "method": "metasgd", "meta": {"init": "experiment5b/weights/shared_h<h>.pt", "fast_layers": "hidden", "learn_S": true, "lr": 1e-3, "meta_batch": 32, "clip": 1.0, "init_alpha": 1e-3, "init_lambda": 0.99, "eval_every": 50, "patience": 30, "val_episodes": 256, "max_minutes": 15}}
+  ]
+}

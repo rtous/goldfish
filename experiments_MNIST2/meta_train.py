@@ -20,7 +20,10 @@ Meta-training uses MNIST training images only (10000 held out for early stopping
                 in closed form, so the meta-gradient is exact (second order)
     settings    the configuration's "meta" block: lr (Adam), meta_batch, clip (gradient norm),
                 init_alpha, init_lambda, learn_S, eval_every (steps), patience (evaluations
-                without improvement), val_episodes, max_minutes; S starts at the mixed model
+                without improvement), val_episodes, max_minutes; S starts at the mixed model, or
+                at "init" (a weights path relative to experiments_MNIST2, <h> = the size);
+                "fast_layers": "hidden" restricts alpha, lambda and the learned S to 0.weight and
+                0.bias (the head stays fixed at its initial value, with no fast part)
     stopping    keep the best online accuracy on the held-out episodes
 
 Writes <experiment>/weights/<config>_h<h>.pt and <experiment>/meta_curve_<config>_h<h>.csv.
@@ -40,9 +43,10 @@ import torch
 import torch.nn.functional as F
 
 from contexts import N_CONTEXTS, transform
-from data import experiment_dir, load_config, load_mixed, load_split
+from data import experiment_dir, load_config, load_init, load_split
 
 NAMES = ("0.weight", "0.bias", "2.weight", "2.bias")
+FAST_LAYERS = {"hidden": ("0.weight", "0.bias"), "all": NAMES}
 HOLDOUT = 10000
 
 
@@ -62,8 +66,9 @@ def grads(W, x, y, logits, pre, hid):
 
 
 class MetaSGD(torch.nn.Module):
-    def __init__(self, S, alpha, lam, learn_S, gate=None):
+    def __init__(self, S, alpha, lam, learn_S, gate=None, fast_names=NAMES):
         super().__init__()
+        self.fast_names = fast_names
         self.gate = gate is not None
         if self.gate:  # b, c, k, beta of the surprise gate (scalars)
             inv_softplus = lambda v: math.log(math.expm1(v))
@@ -72,15 +77,18 @@ class MetaSGD(torch.nn.Module):
             self.raw_k = torch.nn.Parameter(torch.tensor(inv_softplus(gate["k"])))
             self.raw_beta = torch.nn.Parameter(torch.tensor(math.log(gate["beta"] / (1 - gate["beta"]))))
         key = lambda n: n.replace(".", "_")
-        self.S = torch.nn.ParameterDict({key(n): torch.nn.Parameter(S[n].clone(), requires_grad=learn_S) for n in NAMES})
-        self.log_alpha = torch.nn.ParameterDict({key(n): torch.nn.Parameter(torch.full_like(S[n], math.log(alpha))) for n in NAMES})
-        self.logit_lambda = torch.nn.ParameterDict({key(n): torch.nn.Parameter(torch.full_like(S[n], math.log(lam / (1 - lam)))) for n in NAMES})
+        self.S = torch.nn.ParameterDict({key(n): torch.nn.Parameter(S[n].clone(), requires_grad=learn_S and n in fast_names)
+                                         for n in NAMES})
+        self.log_alpha = torch.nn.ParameterDict({key(n): torch.nn.Parameter(torch.full_like(S[n], math.log(alpha)))
+                                                 for n in fast_names})
+        self.logit_lambda = torch.nn.ParameterDict({key(n): torch.nn.Parameter(torch.full_like(S[n], math.log(lam / (1 - lam))))
+                                                    for n in fast_names})
 
     def params(self):
-        """S, alpha and lambda by parameter name."""
+        """S by parameter name; alpha and lambda by fast parameter name."""
         key = lambda n: n.replace(".", "_")
-        return ({n: self.S[key(n)] for n in NAMES}, {n: self.log_alpha[key(n)].exp() for n in NAMES},
-                {n: torch.sigmoid(self.logit_lambda[key(n)]) for n in NAMES})
+        return ({n: self.S[key(n)] for n in NAMES}, {n: self.log_alpha[key(n)].exp() for n in self.fast_names},
+                {n: torch.sigmoid(self.logit_lambda[key(n)]) for n in self.fast_names})
 
     def gate_params(self):
         """b, c, k and beta of the surprise gate."""
@@ -91,13 +99,13 @@ class MetaSGD(torch.nn.Module):
         no update). Returns per-image losses and correctness, before each image's update."""
         S, alpha, lam = self.params()
         E, T = y.shape
-        fast = {n: torch.zeros((E,) + S[n].shape) for n in NAMES}
+        fast = {n: torch.zeros((E,) + S[n].shape) for n in self.fast_names}
         losses, correct = [], []
         if self.gate:
             b, c, k, beta = self.gate_params()
             m = None
         for t in range(T):
-            W = {n: S[n] + fast[n] for n in NAMES}
+            W = {n: S[n] + fast[n] if n in fast else S[n].expand((E,) + S[n].shape) for n in NAMES}
             logits, pre, hid = forward(W, x[:, t])
             losses.append(F.cross_entropy(logits, y[:, t], reduction="none"))
             correct.append(logits.argmax(1) == y[:, t])
@@ -107,13 +115,13 @@ class MetaSGD(torch.nn.Module):
                 loss_t = losses[-1]
                 m = loss_t if m is None else m
                 z = torch.sigmoid(b * (loss_t - m - c))  # [E]
-                for n in NAMES:
+                for n in self.fast_names:
                     shape = (E,) + (1,) * S[n].dim()
                     step = alpha[n] * alpha_scale * (1 + k * z.view(shape)) * g[n] * keep.view(shape)
                     fast[n] = lam[n] * (1 - z.view(shape)) * fast[n] - step
                 m = beta * m + (1 - beta) * loss_t
                 continue
-            for n in NAMES:
+            for n in self.fast_names:
                 step = alpha[n] * alpha_scale * g[n] * keep.view((E,) + (1,) * S[n].dim())
                 fast[n] = lam[n] * fast[n] - step
         return torch.stack(losses, 1), torch.stack(correct, 1)
@@ -150,7 +158,8 @@ def train(cfg, h, exp_dir, seed, x_train, y_train):
     holdout, pool = np.sort(order[:HOLDOUT]), np.sort(order[HOLDOUT:])
     gate = {"b": m["init_gate_b"], "c": m["init_gate_c"], "k": m["init_gate_k"], "beta": m["init_beta"]} \
         if m.get("gate") else None
-    model = MetaSGD(load_mixed(h), m["init_alpha"], m["init_lambda"], m["learn_S"], gate)
+    model = MetaSGD(load_init(m.get("init"), h), m["init_alpha"], m["init_lambda"], m["learn_S"], gate,
+                    FAST_LAYERS[m.get("fast_layers", "all")])
     opt = torch.optim.Adam([p for p in model.parameters() if p.requires_grad], lr=m["lr"])
     val = episodes(np.random.default_rng(seed + 1), x_train, y_train, holdout, m["val_episodes"])
 

@@ -28,6 +28,10 @@ is roughly +19 to +23 pp to gain.
 | [experiment2](experiment2/README.md) | `dual` | slow + fast weights at a few settings | on L1000 yes, up to +4.1 (h = 8) and +6.1 pp (h = 4); on short bursts no (at most +0.3 pp) |
 | [experiment3_metaSGD](experiment3_metaSGD/README.md) | `metasgd` | meta-learned fast learning rates and decays | the only method that gains on short bursts (+2.7 and +2.4 pp), and +3.5 / +3.8 pp on L1000 |
 | [experiment4_surpriseGated](experiment4_surpriseGated/README.md) | `metasgd` + gate, oracle reset | does wiping F at switches help, and what could a perfect gate add? | no: the learned gate gains +0.9 to +1.8 pp (below experiment 3); an oracle reset adds at most +0.3 pp to Meta-SGD and leaves aggressive dual weights below 0 on short bursts; switches are not detectable from the loss (AUC <= 0.58) |
+| [experiment5a](experiment5a/README.md) | offline fine-tune of one subset per context | which part of the network holds the context knowledge? | the first layer: alone it recovers 83% (h = 8) / 73% (h = 4) of the mixed-to-per-context gap (`all`: 90% / 94%); a rank-1 change to it recovers 25% / 29%, biases at most 3% |
+| [experiment5b](experiment5b/README.md) | `dual` / `metasgd` from a shared-head start | does pretraining one first layer per context with a shared head give a better start for online adaptation? | only on long bursts with `dual`: +4.9 / +7.8 pp on L1000 (best so far), but worse on short bursts (-5.6 / -4.6 pp) and a larger switching cost; the mean first layer frozen is 18-20 pp below the mixed model; `metasgd` from this start is below experiment 3 everywhere |
+| [experiment5c](experiment5c/README.md) | `dual` / `metasgd` from a general first layer S1 (trained with S1 + D_k per context) | does a starting first layer trained to be good on every rotation fix 5b's poor start? | yes for the start (73.70 / 64.83%, the mixed model's level; ceiling 89.86 / 84.27%): `dual` keeps most of 5b's L1000 gain (+4.4 / +6.5 pp) and loses less on short bursts (-3.5 / -2.9 pp); `metasgd` is level with experiment 3 (-0.4 to +0.1 pp) |
+| [experiment5d_lowdim](experiment5d_lowdim/README.md) | offline: SVD of 5c's D_k, rank-r contexts vs matched-size mixed models | is the context part low-dimensional, and is a low-dimensional context worth its parameters? | no: the top 1 / 2 / 4 of 8 directions explain 27 / 46 / 73%; every rank-r ceiling (r = 1, 2, 4) is 4-10 pp below a plain mixed model of the same size (e.g. 87.78% vs 92.82% for H = 40 at h = 8); not worth building with directions taken after the fact |
 
 Best configuration of each experiment side by side: `plots/compare.png` and
 `plots/compare_burst_curve_<stream>.png`.
@@ -58,6 +62,10 @@ F <- decay * F - fast_lr * g on the fast parameters.
   and decay (lambda) are per-parameter tensors meta-learned by `meta_train.py`. With
   `"gate": true` in the meta block, a meta-learned surprise gate also wipes F when the loss jumps
   (experiment 4).
+- Optional on `sgd` and `dual`: `"init": "experiment5b/weights/shared_h<h>.pt"` starts S from
+  those weights instead of the mixed model ("frozen" and "gain" stay relative to the mixed model). In a
+  `metasgd` meta block, `"init"` does the same for meta-training, and `"fast_layers": "hidden"`
+  restricts S, alpha and lambda to 0.weight and 0.bias (experiment 5b).
 - Optional on any method: `"oracle_reset": true` sets F to 0 at the first image of each burst (the
   shuffled control at the same positions). A `metasgd` config can borrow another experiment's
   checkpoint with `"checkpoint_from": "3", "checkpoint": "metasgd"`.

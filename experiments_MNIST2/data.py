@@ -62,6 +62,18 @@ def load_mixed(h):
     return torch.load(mixed_path(h))["state_dict"]
 
 
+def load_init(init, h):
+    """Starting weights: the mixed model if init is None, else the state dict saved at init (a path
+    relative to experiments_MNIST2, with <h> replaced by the size)."""
+    if init is None:
+        return load_mixed(h)
+    path = os.path.join(HERE, init.replace("<h>", str(h)))
+    if not os.path.exists(path):
+        raise SystemExit("No %s." % path)
+    saved = torch.load(path)
+    return saved.get("state_dict", saved)
+
+
 def experiments():
     return sorted(d for d in os.listdir(HERE) if os.path.isfile(os.path.join(HERE, d, "configurations.json")))
 

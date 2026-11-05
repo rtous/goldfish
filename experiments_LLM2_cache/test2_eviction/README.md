@@ -4,9 +4,12 @@
 half, and how fast do other books evict that memory?
 
 **Answer.** Memory of A falls slowly: +0.038 nats/token with no interlude, +0.027 after 10k tokens
-of other books, +0.019 after 100k (mean of 3 books, all three still clearly positive). So the
-"cache size" is over 100k tokens at this learning rate. But the fall comes from the B1 run getting
-better, not from the A1 run forgetting: the A1 run's loss on A2 stays the same at every interlude.
+of other books, +0.019 after 100k (mean of 3 books, all three still clearly positive). The
+comparison is matched (same interlude, A1 and B1 the same length), so memory of A halves over 100k
+tokens, and the "cache size" is over 100k tokens at this learning rate. The A1 run's loss on A2
+stays about the same at every interlude while the B1 run's improves. That does not show that the
+A1 run keeps its memory of A: it is equally consistent with the A1 run losing A-specific memory
+while gaining general adaptation. This test cannot tell the two apart.
 
 ## Setup
 
@@ -59,10 +62,10 @@ Runtime: 3 min 47 s for the 27 runs (18 online, 9 frozen) on CPU.
    rest comes from having read any book (the B1 run gets +0.048).
 2. **Memory falls with the interlude but is still half its starting value after 100k tokens.**
    With three values of I, the point where it reaches zero can't be read off; it lies beyond 100k.
-3. **The fall is the B1 run catching up, not the A1 run forgetting.** The A1 run's gain on A2 is
-   flat across I, while the B1 run's grows with more books. In the A1 run, A-specific memory is
-   probably being lost while general adaptation builds up, and the two roughly cancel; this test
-   cannot separate them.
+3. **Two readings of how memory falls.** The A1 run's gain on A2 is flat across I, while the B1
+   run's grows with more books. Either the A1 run keeps its memory of A and the B1 run catches up
+   through general adaptation, or the A1 run loses A-specific memory while gaining the same general
+   adaptation, and the two cancel. This test cannot separate them.
 4. **Book-level memory lasts longer than token-level gain.** In test 1 the gain on rare tokens had
    faded by 10k-100k tokens back, while here a book-level memory lasts over 100k. What lasts may be
    a book's style and vocabulary rather than specific tokens. Test 3 repeats this test with

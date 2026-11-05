@@ -98,8 +98,9 @@ Runtime: 11 min 3 s on CPU (MLP last layer 48 s, last 2 layers 50 s, 70M picks 5
    tokens 10k-20k back still have a locality of +0.038, more than closer earlier-book tokens, and
    earlier-book tokens at 10k-100k have none (-0.020). So the fall of the gain with distance in test
    1 is largely the fall in the share of same-book tokens. Distance still matters within a book
-   (locality +0.248, +0.117, +0.038). The unigram cache shows the opposite pattern: it ignores the
-   book and fades with distance.
+   (locality +0.248, +0.117, +0.038). The unigram cache depends more on distance than on the book:
+   at 1k-10k it gains +0.069 on same-book tokens and -0.016 on earlier-book ones, but at 10k-20k
+   within the same book it already loses (-0.050), where online learning still gains +0.065.
 2. **Part B (superseded):** at lr 3e-5, 70M's locality was 5x smaller than 14M's within 1k tokens
    (+0.047 against +0.247). Test 6 tuned 70M further and found it smaller still.
 3. **Part C (superseded):** at lr 1e-4, updating only the last 1-2 layers' MLPs lost almost all the

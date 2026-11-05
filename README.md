@@ -42,11 +42,11 @@ Paper figures: `venv/bin/python paper/make_figures.py` (reads only the saved res
 | test | question | current answer |
 |---|---|---|
 | [1: distance](experiments_LLM2_cache/test1_distance/README.md) | does the online gain extend beyond the 256-token window, and how far? | yes, up to about 10k tokens: for rare tokens last seen in an earlier chunk, +0.301 nats/token under 1k tokens back, +0.143 at 1k-10k, +0.010 at 10k-100k; overall +0.099. Tokens repeated within the chunk get worse (-0.107) |
-| [2: eviction](experiments_LLM2_cache/test2_eviction/README.md) | does a book's memory get evicted by other books, and how fast? | slowly: memory of A is +0.038, +0.027 and +0.019 after 0, 10k and 100k tokens of other books; the fall comes from the comparison run catching up, not from forgetting |
+| [2: eviction](experiments_LLM2_cache/test2_eviction/README.md) | does a book's memory get evicted by other books, and how fast? | slowly: memory of A is +0.038, +0.027 and +0.019 after 0, 10k and 100k tokens of other books (matched comparison). Whether the A1 run keeps A and the comparison run catches up, or the A1 run loses A while gaining general adaptation, this test cannot tell |
 | [3: baselines](experiments_LLM2_cache/test3_baselines/README.md) | is it more than a word-frequency cache, and which weights carry it? | yes beyond 1k tokens (+0.143 against +0.058 for a unigram cache at 1k-10k); the cache wins within 1k (+0.462 against +0.301). The long-range gain lives below the output layer; output only is a short-range cache |
 | [4: checks](experiments_LLM2_cache/test4_checks/README.md) | how much is local, which layers, does online + cache add up, is there contamination? | 61% of the overall gain survives shuffling, but only 18% within 1k and 27% at 1k-10k. MLP only keeps most of the long-range gain. Online + cache: +0.673 within 1k. The books are very likely not in Pythia's training data |
 | [5: capacity](experiments_LLM2_cache/test5_capacity/README.md) | recency of the token or the same book? | mostly the same book: at 1k-10k, locality +0.117 for same-book tokens against +0.025 for earlier-book ones (its size and smaller-part results are superseded by test 6) |
-| [6: layers and size](experiments_LLM2_cache/test6/README.md) | which layers' MLPs hold the memory, and how does locality change with model size? | every MLP but the last; a single middle-layer MLP beats the full learner within 1k tokens (+0.395 against +0.301). Locality within 1k: +0.247 (14M), +0.270 (31M), +0.016 (70M) |
+| [6: layers and size](experiments_LLM2_cache/test6/README.md) | which layers' MLPs hold the memory, and how does locality change with model size? | every MLP but the last; a single middle-layer MLP beats the full learner within 1k tokens (layer 2: +0.395 against +0.301), but at a higher learning rate (at its grid edge), with a lower overall gain (+0.055 against +0.099) and a larger loss on never-seen tokens (-0.129 against -0.062). Locality within 1k: +0.247 (14M), +0.270 (31M), +0.016 (70M) |
 
 ## Status and open questions
 
@@ -57,7 +57,7 @@ Preliminary results: one seed, plain SGD with a learning rate picked per run on 
   needs the recent material) and mostly tied to the current book.
 - It is not just a token-count cache: a unigram cache is better within 1k tokens, but the online
   learner keeps gaining up to about 10k tokens, and the two combine within 10k.
-- The memory sits in the MLPs of the layers below the output; a single middle-layer MLP is enough.
+- The memory sits in the MLPs of the layers below the output; a single middle-layer MLP can carry much of it, at a higher learning rate and a larger cost on tokens not seen recently.
 
 Open questions and next steps:
 

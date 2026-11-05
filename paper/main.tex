@@ -14,9 +14,8 @@
 % Every number in this paper comes from the result files in ../experiments_LLM2_cache/
 % (results.csv, picks.csv, eviction.csv, position.csv, runtime.txt of each test folder);
 % gains are rounded to three decimals from the four-decimal values saved there.
-% Working title: "Online learning turns a small language model into a cache of its current context".
 
-\title{A Cache in the Weights? Online Learning Gives a Small Language Model\\ a Memory of Its Current Book\\[4pt] \large Preliminary results}
+\title{A Cache in the Weights? Online Learning and\\ Temporal Locality in Small Language Models\\[4pt] \large Preliminary results}
 \author{Ruben Tous\\ \small{\textit{Affiliation}}}
 \date{Draft, \today}
 
@@ -30,7 +29,7 @@ On 25 PG-19 books read by Pythia-14M in independent chunks of 256 tokens, online
 Shuffling the chunks keeps 61\% of the overall gain but only 18\% of the gain under 1k tokens and 27\% at 1k--10k: the long-range gain is local.
 It is also mostly about the current book: at 1k--10k tokens, the part that needs the original order is $+0.117$ for tokens last seen in the same book and $+0.025$ for tokens last seen in an earlier one.
 A unigram cache of recent tokens is better within 1k tokens but not beyond, and the two combine.
-The memory lives in the MLPs below the output layer; one middle-layer MLP (0.13M parameters) beats full online learning within 1k tokens.
+The memory lives in the MLPs below the output layer: updating only the MLPs keeps most of the long-range gain, and the MLP of layer 2 alone (0.13M parameters) even gains more than full online learning within 1k tokens, though at a higher learning rate (at the edge of its grid), with a lower overall gain ($+0.055$ against $+0.099$) and a larger loss on never-seen tokens.
 The effect is as large at 31M parameters as at 14M and almost vanishes at 70M.
 These are preliminary results: one seed, plain SGD with per-run learning rates, short books, three model sizes.
 \end{abstract}
@@ -63,7 +62,7 @@ Our contributions are the following.
 \section{Related work}
 
 \paragraph{Dynamic evaluation.}
-Krause et al.\ \cite{krause2018dynamic} adapt a recurrent language model to the recent history of the sequence it is predicting with gradient steps at test time, exploiting re-occurring patterns; applied to Transformer-XL the gains are smaller, since attention already models some of the repetition \cite{krause2019dynamic}.
+Krause et al.\ \cite{krause2018dynamic} adapt a recurrent language model to the recent history of the sequence it is predicting with gradient steps at test time, exploiting re-occurring patterns; applied to Transformer-XL the gains are smaller than for weaker models, which the authors take to suggest that Transformers already model re-occurring patterns better than earlier architectures \cite{krause2019dynamic}.
 Rannen-Triki et al.\ \cite{rannentriki2024revisiting} revisit dynamic evaluation for larger models and frame it as memory in weights, a form of context-length extension, with the largest gains under distribution shift.
 We use the same prequential protocol (score, then update) and ask what the updated weights remember and where.
 
@@ -161,7 +160,7 @@ Table~\ref{tab:samebook} splits each earlier-chunk bin by whether the previous o
 At 1k--10k tokens back, the locality is $+0.117$ for same-book tokens and $+0.025$ for earlier-book tokens.
 Same-book tokens 10k--20k back still have a locality of $+0.038$, more than earlier-book tokens that are closer (1k--10k), while earlier-book tokens at 10k--100k have none ($-0.020$).
 The fall of the gain with distance in Table~\ref{tab:distance} is therefore largely the fall in the share of same-book tokens, although distance still matters within a book (locality $+0.248$, $+0.117$ and $+0.038$).
-The unigram cache shows the opposite pattern: it ignores the book and fades with distance.
+The unigram cache depends more on distance than on the book: at 1k--10k it gains $+0.069$ on same-book tokens and $-0.016$ on earlier-book ones, but already at 10k--20k within the same book it loses ($-0.050$), where online learning still gains $+0.065$.
 
 \begin{table}[t]
 \centering
@@ -184,13 +183,12 @@ earlier chunk, 10k--100k & same book & 4814 & $+0.065$ & $+0.027$ & $+0.038$ & $
 \subsection{More than a count cache, and complementary to it}
 
 Table~\ref{tab:baselines} compares online learning with a unigram cache on the frozen model, $p = (1-\lambda)\,p_\text{model} + \lambda\,p_\text{cache}$, where $p_\text{cache}$ holds the normalized, exponentially decaying counts of the token ids seen so far, updated after each chunk like the online learner ($\lambda = 0.05$, half-life 1k tokens, picked on the check books).
-The cache is the better short-range copier: $+0.462$ under 1k tokens and $+0.089$ on tokens repeated within the chunk, where online learning loses.
-From 1k tokens on, online learning is better ($+0.143$ against $+0.058$ at 1k--10k), and overall it gains six times more ($+0.099$ against $+0.017$).
+The cache is the better short-range copier ($+0.462$ under 1k tokens, $+0.089$ within the chunk); from 1k tokens on online learning is better ($+0.143$ against $+0.058$ at 1k--10k), and overall it gains six times more.
 The two combine: mixing the same cache into the online learner's predictions gives $+0.673$ under 1k and $+0.185$ at 1k--10k.
 Beyond 10k tokens and on never-seen tokens the combination loses more, so overall it is only slightly better than online learning alone ($+0.102$ against $+0.099$); the mixing weight was picked for the frozen model.
 
 Updating everything but the output embedding reproduces the full learner in every bin ($+0.094$ overall).
-Updating only the output embedding depends strongly on the learning rate: at $10^{-3}$, the best of the first grid, it gains $+0.045$ with almost no dependence on distance; at $3 \times 10^{-3}$, found later and itself at the edge of the grid, it becomes a short-range cache ($+0.251$ under 1k tokens, $+0.092$ in the same chunk) that still falls off quickly ($+0.066$ at 1k--10k) and costs more beyond 10k.
+Updating only the output embedding is a short-range cache at best: at $3 \times 10^{-3}$ (at the edge of its grid) it gains $+0.251$ under 1k tokens but only $+0.066$ at 1k--10k, and at $10^{-3}$ almost nothing that depends on distance.
 The long-range gain lives below the output layer.
 
 \begin{table}[t]
@@ -225,8 +223,10 @@ The \emph{memory of A} is the loss on A2 after B1 minus the loss on A2 after A1.
 
 With all parameters updated, the memory of A is $+0.038$ nats/token at $I = 0$, $+0.027$ after 10k tokens and $+0.019$ after 100k (mean of the 3 books; all three are positive at every $I$; Figure~\ref{fig:eviction}).
 About 44\% of the A1 run's gain on A2 at $I = 0$ ($+0.086$) is specific to the book.
-The memory halves over 100k tokens, but not because the A1 run forgets: its gain on A2 is flat ($+0.086$, $+0.082$, $+0.085$), while the B1 run's grows ($+0.048$, $+0.055$, $+0.067$) as more books add general adaptation.
-Losing A-specific memory and gaining general adaptation may cancel in the A1 run; this test cannot separate them.
+The comparison is matched (the same interlude, and A1 and B1 of the same length), so the memory of A halves over 100k tokens of other books.
+How the two runs get there is open to two readings.
+The A1 run's gain on A2 is flat ($+0.086$, $+0.082$, $+0.085$) while the B1 run's grows ($+0.048$, $+0.055$, $+0.067$).
+This does not show that the A1 run keeps its memory of A: it is equally consistent with the A1 run losing A-specific memory while gaining general adaptation from the interlude at the same rate as the B1 run, and this test cannot separate the two.
 Updating everything but the output embedding gives a similar memory ($+0.035$, $+0.024$, $+0.016$); output only (lr $10^{-3}$) starts lower ($+0.025$) and decays more slowly ($+0.014$ at 100k); the unigram cache keeps $+0.008$ at $I = 0$ and nothing after 10k tokens.
 Book-level memory thus lasts much longer than the token-level gain of Table~\ref{tab:distance}: what lasts may be a book's style and vocabulary rather than specific tokens.
 
@@ -316,7 +316,7 @@ The results support a qualified version of the cache picture.
 Online learning gives a small language model a memory beyond its attention window, and the long-range part of it is local.
 But it behaves less like a cache of recent tokens than like a memory of the current book: its gain follows book membership more than distance, the memory of a book is still half its size after 100k tokens of other books, and a count cache does the short-range copying better.
 The general knowledge in the weights is only partly kept: tokens not seen recently are predicted slightly worse ($-0.062$ for never-seen tokens), the cost of moving probability towards the current context.
-That the memory sits in the MLPs, and that one middle-layer MLP can carry it, fits the view of feed-forward layers as key-value memories \cite{geva2021transformer} and the choice of MLP weights as fast weights in recent test-time training \cite{feng2026inplace}.
+That the memory sits in the MLPs, and that a single middle-layer MLP can carry much of it (at a higher learning rate and a larger cost on other tokens), fits the view of feed-forward layers as key-value memories \cite{geva2021transformer} and the choice of MLP weights as fast weights in recent test-time training \cite{feng2026inplace}.
 
 These are preliminary results with clear limitations.
 \begin{itemize}

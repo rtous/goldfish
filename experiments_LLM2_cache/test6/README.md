@@ -11,7 +11,9 @@ the context memory? How does locality change across three model sizes?
   the last layer alone keeps +0.108.
 - **Where the memory lives:** every layer's MLP can hold it except the last, which is the weakest.
   A single MLP in layer 2 or 4 (131712 parameters) gains more within 1k tokens than the full
-  learner (+0.395 and +0.357 against +0.301).
+  learner (+0.395 and +0.357 against +0.301), but at a higher learning rate (3e-3, at the grid
+  edge), with lower overall gains (+0.055 and +0.067 against +0.099) and larger losses on
+  never-seen tokens (-0.129 and -0.116 against -0.062).
 - **Size curve:** not a steady fall. 31M's locality is as large as 14M's (+0.270 within 1k), and
   the drop happens between 31M and 70M.
 

@@ -1,0 +1,1 @@
+cpu; checks 4 s, output_lr3e-3 49 s, shuffled 71 s, mlp 57 s, attention 55 s

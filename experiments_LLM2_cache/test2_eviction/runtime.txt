@@ -1,0 +1,1 @@
+lr 0.0001; 227 s for all runs; cpu

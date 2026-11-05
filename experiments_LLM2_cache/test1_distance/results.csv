@@ -1,0 +1,8 @@
+bin,tokens,frozen,online,gain
+all tokens,498046,4.3922,4.2929,0.0993
+same chunk,9881,5.0194,5.1269,-0.1075
+"earlier chunk, < 1k",17054,7.3382,7.0373,0.3009
+"earlier chunk, 1k-10k",34076,7.0001,6.8568,0.1433
+"earlier chunk, 10k-100k",44133,7.1181,7.1083,0.0097
+"earlier chunk, >= 100k",13178,7.8193,7.8539,-0.0346
+never seen,20959,8.1856,8.2472,-0.0617

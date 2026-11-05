@@ -1,0 +1,2 @@
+70M lr 3e-05, 70426624 parameters; 14M MLP parameters {'mlp_last1': 131712, 'mlp_last2': 263424, 'mlp_all': 790272}; cpu
+mlp_last1 48 s, mlp_last2 50 s, picks70 58 s, frozen70 109 s, online70 196 s, shuffled70 192 s

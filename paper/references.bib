@@ -18,123 +18,149 @@
   year      = {1989}
 }
 
-@article{french1999catastrophic,
-  author  = {French, Robert M.},
-  title   = {Catastrophic Forgetting in Connectionist Networks},
-  journal = {Trends in Cognitive Sciences},
-  volume  = {3},
-  number  = {4},
-  pages   = {128--135},
-  year    = {1999}
+@article{kuhn1990cache,
+  author  = {Kuhn, Roland and De Mori, Renato},
+  title   = {A Cache-Based Natural Language Model for Speech Recognition},
+  journal = {IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  volume  = {12},
+  number  = {6},
+  pages   = {570--583},
+  year    = {1990}
 }
 
-@article{lecun1998gradient,
-  author  = {LeCun, Yann and Bottou, L{\'e}on and Bengio, Yoshua and Haffner, Patrick},
-  title   = {Gradient-Based Learning Applied to Document Recognition},
-  journal = {Proceedings of the IEEE},
-  volume  = {86},
-  number  = {11},
-  pages   = {2278--2324},
-  year    = {1998}
-}
-
-@article{parisi2019continual,
-  author  = {Parisi, German I. and Kemker, Ronald and Part, Jose L. and Kanan, Christopher and Wermter, Stefan},
-  title   = {Continual Lifelong Learning with Neural Networks: A Review},
-  journal = {Neural Networks},
-  volume  = {113},
-  pages   = {54--71},
-  year    = {2019}
-}
-
-@article{kirkpatrick2017overcoming,
-  author  = {Kirkpatrick, James and Pascanu, Razvan and Rabinowitz, Neil and Veness, Joel and Desjardins, Guillaume and Rusu, Andrei A. and Milan, Kieran and Quan, John and Ramalho, Tiago and Grabska-Barwinska, Agnieszka and Hassabis, Demis and Clopath, Claudia and Kumaran, Dharshan and Hadsell, Raia},
-  title   = {Overcoming Catastrophic Forgetting in Neural Networks},
-  journal = {Proceedings of the National Academy of Sciences},
-  volume  = {114},
-  number  = {13},
-  pages   = {3521--3526},
-  year    = {2017}
-}
-
-@inproceedings{sun2020test,
-  author    = {Sun, Yu and Wang, Xiaolong and Liu, Zhuang and Miller, John and Efros, Alexei A. and Hardt, Moritz},
-  title     = {Test-Time Training with Self-Supervision for Generalization under Distribution Shifts},
-  booktitle = {Proceedings of the 37th International Conference on Machine Learning (ICML)},
-  year      = {2020}
-}
-
-@inproceedings{wang2021tent,
-  author    = {Wang, Dequan and Shelhamer, Evan and Liu, Shaoteng and Olshausen, Bruno and Darrell, Trevor},
-  title     = {Tent: Fully Test-Time Adaptation by Entropy Minimization},
+@inproceedings{grave2017improving,
+  author    = {Grave, Edouard and Joulin, Armand and Usunier, Nicolas},
+  title     = {Improving Neural Language Models with a Continuous Cache},
   booktitle = {International Conference on Learning Representations (ICLR)},
-  year      = {2021}
+  year      = {2017}
 }
 
 @inproceedings{krause2018dynamic,
   author    = {Krause, Ben and Kahembwe, Emmanuel and Murray, Iain and Renals, Steve},
   title     = {Dynamic Evaluation of Neural Sequence Models},
   booktitle = {Proceedings of the 35th International Conference on Machine Learning (ICML)},
+  series    = {PMLR},
+  volume    = {80},
+  pages     = {2766--2775},
   year      = {2018}
+}
+
+@misc{krause2019dynamic,
+  author        = {Krause, Ben and Kahembwe, Emmanuel and Murray, Iain and Renals, Steve},
+  title         = {Dynamic Evaluation of Transformer Language Models},
+  howpublished  = {arXiv:1904.08378},
+  year          = {2019}
+}
+
+@misc{rannentriki2024revisiting,
+  author       = {Rannen-Triki, Amal and Bornschein, Jorg and Pascanu, Razvan and Hutter, Marcus and Gy{\"o}rgy, Andr{\'a}s and Galashov, Alexandre and Teh, Yee Whye and Titsias, Michalis K.},
+  title        = {Revisiting Dynamic Evaluation: Online Adaptation for Large Language Models},
+  howpublished = {arXiv:2403.01518},
+  year         = {2024}
+}
+
+@inproceedings{sun2020test,
+  author    = {Sun, Yu and Wang, Xiaolong and Liu, Zhuang and Miller, John and Efros, Alexei A. and Hardt, Moritz},
+  title     = {Test-Time Training with Self-Supervision for Generalization under Distribution Shifts},
+  booktitle = {Proceedings of the 37th International Conference on Machine Learning (ICML)},
+  series    = {PMLR},
+  volume    = {119},
+  pages     = {9229--9248},
+  year      = {2020}
+}
+
+@inproceedings{feng2026inplace,
+  author    = {Feng, Guhao and Luo, Shengjie and Hua, Kai and Zhang, Ge and He, Di and Huang, Wenhao and Cai, Tianle},
+  title     = {In-Place Test-Time Training},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  note      = {arXiv:2604.06169},
+  year      = {2026}
+}
+
+@inproceedings{bansal2026lets,
+  author    = {Bansal, Rachit and Zhang, Aston and Tiwari, Rishabh and Madaan, Lovish and Duvvuri, Venkata Sai Surya Subramanyam and Khatri, Devvrit and Brandfonbrener, David and Alvarez-Melis, David and Bhargava, Prajjwal and Kale, Mihir and Jelassi, Samy},
+  title     = {Let's (not) just put things in Context: Test-time Training for Long-context {LLMs}},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  note      = {arXiv:2512.13898},
+  year      = {2026}
+}
+
+@misc{tandon2025endtoend,
+  author       = {Tandon, Arnuv and Dalal, Karan and Li, Xinhao and Koceja, Daniel and R{\o}d, Marcel and Buchanan, Sam and Wang, Xiaolong and Leskovec, Jure and Koyejo, Sanmi and Hashimoto, Tatsunori and Guestrin, Carlos and McCaleb, Jed and Choi, Yejin and Sun, Yu},
+  title        = {End-to-End Test-Time Training for Long Context},
+  howpublished = {arXiv:2512.23675},
+  year         = {2025}
+}
+
+@article{schmidhuber1992learning,
+  author  = {Schmidhuber, J{\"u}rgen},
+  title   = {Learning to Control Fast-Weight Memories: An Alternative to Dynamic Recurrent Networks},
+  journal = {Neural Computation},
+  volume  = {4},
+  number  = {1},
+  pages   = {131--139},
+  year    = {1992}
 }
 
 @inproceedings{ba2016using,
   author    = {Ba, Jimmy and Hinton, Geoffrey E. and Mnih, Volodymyr and Leibo, Joel Z. and Ionescu, Catalin},
   title     = {Using Fast Weights to Attend to the Recent Past},
-  booktitle = {Advances in Neural Information Processing Systems (NIPS)},
+  booktitle = {Advances in Neural Information Processing Systems 29 (NIPS)},
   year      = {2016}
 }
 
-@inproceedings{han2016deep,
-  author    = {Han, Song and Mao, Huizi and Dally, William J.},
-  title     = {Deep Compression: Compressing Deep Neural Networks with Pruning, Trained Quantization and Huffman Coding},
+@inproceedings{schlag2021linear,
+  author    = {Schlag, Imanol and Irie, Kazuki and Schmidhuber, J{\"u}rgen},
+  title     = {Linear Transformers Are Secretly Fast Weight Programmers},
+  booktitle = {Proceedings of the 38th International Conference on Machine Learning (ICML)},
+  series    = {PMLR},
+  volume    = {139},
+  pages     = {9355--9366},
+  year      = {2021}
+}
+
+@inproceedings{geva2021transformer,
+  author    = {Geva, Mor and Schuster, Roei and Berant, Jonathan and Levy, Omer},
+  title     = {Transformer Feed-Forward Layers Are Key-Value Memories},
+  booktitle = {Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  pages     = {5484--5495},
+  year      = {2021}
+}
+
+@inproceedings{biderman2023pythia,
+  author    = {Biderman, Stella and Schoelkopf, Hailey and Anthony, Quentin and Bradley, Herbie and O'Brien, Kyle and Hallahan, Eric and Khan, Mohammad Aflah and Purohit, Shivanshu and Prashanth, USVSN Sai and Raff, Edward and Skowron, Aviya and Sutawika, Lintang and van der Wal, Oskar},
+  title     = {Pythia: A Suite for Analyzing Large Language Models Across Training and Scaling},
+  booktitle = {Proceedings of the 40th International Conference on Machine Learning (ICML)},
+  series    = {PMLR},
+  volume    = {202},
+  pages     = {2397--2430},
+  year      = {2023}
+}
+
+@inproceedings{vanderwal2025polypythias,
+  author    = {van der Wal, Oskar and Lesci, Pietro and M{\"u}ller-Eberstein, Max and Saphra, Naomi and Schoelkopf, Hailey and Zuidema, Willem and Biderman, Stella},
+  title     = {{PolyPythias}: Stability and Outliers across Fifty Language Model Pre-Training Runs},
   booktitle = {International Conference on Learning Representations (ICLR)},
-  year      = {2016}
+  year      = {2025}
 }
 
-@inproceedings{kingma2015adam,
-  author    = {Kingma, Diederik P. and Ba, Jimmy},
-  title     = {Adam: A Method for Stochastic Optimization},
+@inproceedings{rae2020compressive,
+  author    = {Rae, Jack W. and Potapenko, Anna and Jayakumar, Siddhant M. and Hillier, Chloe and Lillicrap, Timothy P.},
+  title     = {Compressive Transformers for Long-Range Sequence Modelling},
   booktitle = {International Conference on Learning Representations (ICLR)},
-  year      = {2015}
+  year      = {2020}
 }
 
-@inproceedings{ioffe2015batch,
-  author    = {Ioffe, Sergey and Szegedy, Christian},
-  title     = {Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift},
-  booktitle = {Proceedings of the 32nd International Conference on Machine Learning (ICML)},
-  year      = {2015}
+@misc{gao2020pile,
+  author       = {Gao, Leo and Biderman, Stella and Black, Sid and Golding, Laurence and Hoppe, Travis and Foster, Charles and Phang, Jason and He, Horace and Thite, Anish and Nabeshima, Noa and Presser, Shawn and Leahy, Connor},
+  title        = {The {Pile}: An 800{GB} Dataset of Diverse Text for Language Modeling},
+  howpublished = {arXiv:2101.00027},
+  year         = {2020}
 }
 
-@inproceedings{hinton1987using,
-  author    = {Hinton, Geoffrey E. and Plaut, David C.},
-  title     = {Using fast weights to deblur old memories},
-  booktitle = {Proceedings of the 9th Annual Conference of the Cognitive Science Society},
-  pages     = {177--186},
-  year      = {1987}
-}
-
-@article{mcclelland1995there,
-  author  = {McClelland, James L. and McNaughton, Bruce L. and O'Reilly, Randall C.},
-  title   = {Why there are complementary learning systems in the hippocampus and neocortex: Insights from the successes and failures of connectionist models of learning and memory},
-  journal = {Psychological Review},
-  volume  = {102},
-  number  = {3},
-  pages   = {419--457},
-  year    = {1995}
-}
-
-@inproceedings{finn2017model,
-  title     = {Model-Agnostic Meta-Learning for Fast Adaptation of Deep Networks},
-  author    = {Finn, Chelsea and Abbeel, Pieter and Levine, Sergey},
-  booktitle = {Proceedings of the 34th International Conference on Machine Learning (ICML)},
-  pages     = {1126--1135},
-  year      = {2017}
-}
-
-@article{li2017metasgd,
-  title   = {Meta-{SGD}: Learning to Learn Quickly for Few-Shot Learning},
-  author  = {Li, Zhenguo and Zhou, Fengwei and Chen, Fei and Li, Hang},
-  journal = {arXiv preprint arXiv:1707.09835},
-  year    = {2017}
+@misc{biderman2022datasheet,
+  author       = {Biderman, Stella and Bicheno, Kieran and Gao, Leo},
+  title        = {Datasheet for the {Pile}},
+  howpublished = {arXiv:2201.07311},
+  year         = {2022}
 }

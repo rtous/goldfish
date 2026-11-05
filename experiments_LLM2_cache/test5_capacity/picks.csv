@@ -1,0 +1,5 @@
+model,lr,loss
+EleutherAI/pythia-70m,0,3.9719
+EleutherAI/pythia-70m,3e-05,3.9660
+EleutherAI/pythia-70m,0.0001,3.9859
+EleutherAI/pythia-70m,0.0003,4.1614

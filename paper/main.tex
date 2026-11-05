@@ -1,9 +1,9 @@
-\documentclass[11pt]{article}
+\documentclass[10pt]{article}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage[margin=2.5cm]{geometry}
+\usepackage[margin=2.2cm]{geometry}
 \usepackage{amsmath}
 \usepackage{booktabs}
 \usepackage{graphicx}
@@ -11,7 +11,12 @@
 \IfFileExists{letltxmacro.sty}{\usepackage{hyperref}}{}
 \usepackage[numbers]{natbib}
 
-\title{Small Models that Forget: Exploiting Temporal Locality\\ with Online Learning at Inference Time}
+% Every number in this paper comes from the result files in ../experiments_LLM2_cache/
+% (results.csv, picks.csv, eviction.csv, position.csv, runtime.txt of each test folder);
+% gains are rounded to three decimals from the four-decimal values saved there.
+% Working title: "Online learning turns a small language model into a cache of its current context".
+
+\title{A Cache in the Weights? Online Learning Gives a Small Language Model\\ a Memory of Its Current Book\\[4pt] \large Preliminary results}
 \author{Ruben Tous\\ \small{\textit{Affiliation}}}
 \date{Draft, \today}
 
@@ -19,245 +24,326 @@
 \maketitle
 
 \begin{abstract}
-Many inputs that machine learning models see at inference time have strong temporal locality:
-consecutive inputs tend to be similar and come from a small part of the input distribution.
-A model facing such inputs does not need to keep everything it knows ready at all times.
-It may be enough to remember some basic knowledge and adapt quickly to the current context.
-We study whether this lets small models beat their frozen offline version.
-Small multilayer perceptrons, trained offline on MNIST digits under eight rotations, classify a stream of test images arranged in bursts: every burst holds all ten digits under one rotation, so the locality is in the inputs and the recent labels carry no information.
-The models predict each image and then take one update on it.
-A shuffled copy of the same stream serves as a control.
-Plain online SGD barely beats the frozen model (at most $+0.25$ percentage points on bursts of 20 to 200 images, $+1.6$ on bursts of 1000).
-Slow and fast weights gain up to $+6.1$ points on bursts of 1000 but lose on short bursts, where each context switch costs more than the adaptation recovers.
-Meta-learning the slow weights together with per-parameter fast learning rates and decays (Meta-SGD) is the only method that also gains on short bursts ($+2.4$ to $+2.7$ points), still far from the $+19$ to $+23$ points that a model per rotation would give.
+Attention forgets everything beyond its window, but the text a language model reads at inference time stays on the same topic, characters and vocabulary for far longer.
+We ask whether a small language model that keeps learning online, one plain SGD step on each chunk after predicting it, uses part of its weights as a cache of its current context.
+On 25 PG-19 books read by Pythia-14M in independent chunks of 256 tokens, online learning lowers the loss by 0.099 nats/token; for rare tokens last seen in an earlier chunk the gain is $+0.301$ under 1k tokens back, $+0.143$ at 1k--10k, and gone beyond 10k.
+Shuffling the chunks keeps 61\% of the overall gain but only 18\% of the gain under 1k tokens and 27\% at 1k--10k: the long-range gain is local.
+It is also mostly about the current book: at 1k--10k tokens, the part that needs the original order is $+0.117$ for tokens last seen in the same book and $+0.025$ for tokens last seen in an earlier one.
+A unigram cache of recent tokens is better within 1k tokens but not beyond, and the two combine.
+The memory lives in the MLPs below the output layer; one middle-layer MLP (0.13M parameters) beats full online learning within 1k tokens.
+The effect is as large at 31M parameters as at 14M and almost vanishes at 70M.
+These are preliminary results: one seed, plain SGD with per-run learning rates, short books, three model sizes.
 \end{abstract}
 
 \section{Introduction}
 
-A trained network is usually deployed frozen: it must classify any input from the whole distribution it was trained on.
-In many applications, however, the inputs arrive in a stream with strong temporal locality.
-A camera in a kitchen sees kitchen objects for hours; a speech recognizer hears the same speaker for a whole conversation; a sensor stays in the same regime for long periods.
-At any moment only a small part of the input distribution is active.
+What a model reads at inference time has strong temporal locality.
+A book keeps its characters, places and turns of phrase for hundreds of thousands of tokens; a conversation, a code base or a document collection behaves the same way.
+Computer memory hierarchies have long exploited this property with a small cache that holds the recently used data \cite{denning1968working}.
+A transformer language model has such a cache in its attention window, but the window is short: anything older than the window is forgotten.
 
-Computer memory hierarchies have relied on this property for decades: a small cache that holds the recently used data serves most requests \cite{denning1968working}.
-We ask whether the same idea applies to the knowledge stored in a network.
-A model does not need to remember everything all the time if its inputs have strong temporal locality.
-It may only need some basic knowledge plus the ability to adapt fast to the current context.
+Weights updated online could keep a memory of the current context beyond the window.
+Dynamic evaluation \cite{krause2018dynamic,krause2019dynamic,rannentriki2024revisiting} and recent test-time training methods \cite{feng2026inplace,bansal2026lets,tandon2025endtoend} do exactly this and report lower perplexity or better long-context performance.
+What is less clear is what kind of memory the updated weights hold.
+If online learning turns part of a model into a cache, the gain should be largest for material seen recently and fall with distance (recency), new material should push old material out (eviction, the useful side of the catastrophic interference that sequential training causes \cite{mccloskey1989catastrophic}), and the general knowledge in the weights should survive.
+Alternatively, the gain may come mostly from adapting to the domain or style of the text in general, which needs no memory of the recent past at all.
 
-Our hypothesis is that, under severe capacity limits, online training at inference time can outperform the same model trained offline and then frozen.
-A frozen small model must spread its limited capacity over the whole distribution.
-An online model can spend it on the part of the distribution that is active now.
-The price is forgetting: neural networks trained sequentially lose what they learned earlier, a behavior known as catastrophic forgetting \cite{mccloskey1989catastrophic,french1999catastrophic}.
-This recency bias is usually treated as a problem.
-In a stream with temporal locality it may be useful, because what was seen recently is what will be seen next.
+We study this question with a deliberately simple setup and a small model, where controls are cheap.
+Pythia-14M \cite{biderman2023pythia} reads 25 PG-19 test books \cite{rae2020compressive} in chunks of 256 tokens scored with no context from the previous chunk, so anything that helps beyond 256 tokens has to come through the weights; after scoring each chunk, it takes one SGD step on it.
 
-This paper tests the hypothesis on MNIST \cite{lecun1998gradient}.
-The obvious stream, bursts of plain MNIST images of a few digits each, puts the locality in the labels only: the images of a burst share nothing but their digits.
-On such a stream a running estimate of the recent label frequencies, which learns no weights, beats online learning, so the stream says little about whether a network can adapt its knowledge.
-We therefore put the locality in the inputs: every burst holds all ten digits under one of eight rotations, and the labels are uniform everywhere.
-To gain, a model has to adapt to how the current inputs look, not to which labels are frequent.
-
-Experiment~1 checks whether plain online SGD beats the frozen model on two streams, with short bursts (20 to 200 images) and long ones (1000).
-Experiment~2 splits knowledge by time scale, with slow weights and fast weights that adapt to the current context and then fade.
-Experiment~3 meta-learns the slow weights together with per-parameter fast learning rates and decays (Meta-SGD \cite{li2017metasgd}).
+Our contributions are the following.
+\begin{itemize}
+\item A \textbf{shuffled-stream control} that separates the local part of the online gain (which needs the recent material) from the global part (adapting to the text in general), measured per token and per distance bin.
+\item A \textbf{count-cache baseline}: a unigram cache of recent tokens mixed into the frozen model, and its combination with online learning.
+\item A \textbf{distance and same-book analysis}: the long-range gain is mostly about being in the same book, not only about recency.
+\item The \textbf{location of the memory} in the network: updating only the MLPs, or a single layer's MLP, keeps most of the long-range gain; the output layer alone does not.
+\item Preliminary evidence on \textbf{eviction} and on \textbf{model size} (14M, 31M, 70M), with their limitations.
+\end{itemize}
 
 \section{Related work}
 
-\paragraph{Catastrophic forgetting and continual learning.}
-Continual learning tries to learn a sequence of tasks without forgetting the earlier ones \cite{parisi2019continual}.
-Elastic weight consolidation \cite{kirkpatrick2017overcoming}, for example, protects the weights that matter for old tasks.
-Our setting reverses the goal: we accept forgetting and ask whether it can be used.
+\paragraph{Dynamic evaluation.}
+Krause et al.\ \cite{krause2018dynamic} adapt a recurrent language model to the recent history of the sequence it is predicting with gradient steps at test time, exploiting re-occurring patterns; applied to Transformer-XL the gains are smaller, since attention already models some of the repetition \cite{krause2019dynamic}.
+Rannen-Triki et al.\ \cite{rannentriki2024revisiting} revisit dynamic evaluation for larger models and frame it as memory in weights, a form of context-length extension, with the largest gains under distribution shift.
+We use the same prequential protocol (score, then update) and ask what the updated weights remember and where.
 
-\paragraph{Two time scales.}
-Hinton and Plaut \cite{hinton1987using} added to each connection a fast weight that learns quickly and decays, on top of a slow weight, to recover old memories after interference.
-Complementary learning systems theory \cite{mcclelland1995there} explains the division between a fast-learning hippocampus and a slow-learning neocortex by the need to learn new experiences without overwriting old knowledge.
-Fast weights in recurrent networks \cite{ba2016using} store recent hidden states in a decaying outer-product memory.
-Experiment~2 uses the formulation of Hinton and Plaut on the first layer only, and its fast part tracks the current context rather than restoring old associations.
+\paragraph{Cache language models.}
+Kuhn and De Mori \cite{kuhn1990cache} mix a cache of recently seen words into an $n$-gram model; Grave et al.\ \cite{grave2017improving} store recent hidden states and their next words and mix the resulting distribution into a neural model without retraining.
+Our unigram cache is the simplest member of this family and serves as the baseline that any ``cache in the weights'' should beat.
 
-\paragraph{Meta-learning for fast adaptation.}
-Model-agnostic meta-learning \cite{finn2017model} learns an initialization from which a few gradient steps adapt a network to a new task.
-Meta-SGD \cite{li2017metasgd} also learns a learning rate for every parameter.
-Experiment~3 meta-learns, in the same way, the slow weights and a per-parameter fast learning rate and decay, so that one gradient step per image adapts the model to the current context.
+\paragraph{Test-time training for language models.}
+Test-time training adapts a model to each test input with a self-supervised loss \cite{sun2020test}.
+For language models, In-Place TTT \cite{feng2026inplace} treats the final projection of the MLP blocks as fast weights updated with a next-token objective; qTTT \cite{bansal2026lets} updates only the query projections on the long context; TTT-E2E \cite{tandon2025endtoend} meta-learns a model for test-time training on long context.
+Our finding that the MLPs below the output hold the memory is consistent with In-Place TTT's choice of MLP weights as the adaptable part, and with the view of feed-forward layers as key-value memories \cite{geva2021transformer}.
 
-\paragraph{Test time adaptation.}
-Several methods update a model while it is used, for example with a self supervised task \cite{sun2020test} or by minimizing the entropy of the predictions \cite{wang2021tent}.
-They target distribution shift and do not use labels.
-Dynamic evaluation \cite{krause2018dynamic} updates a language model on the recent part of the sequence it is predicting, which exploits local regularities in text, the closest idea to ours.
+\paragraph{Fast weights.}
+Fast weights change at inference time to hold short-term memory \cite{schmidhuber1992learning,ba2016using}, and linear transformers can be read as fast weight programmers \cite{schlag2021linear}; online SGD on a pretrained model is a crude, untrained form of fast weights.
 
-\paragraph{Model compression.}
-Compression reduces model size by pruning, quantization or distillation \cite{han2016deep}, keeping the model frozen.
-We study a different route to small models that is complementary to compression.
+\paragraph{What this work adds.}
+Prior work reports the overall gain of online adaptation; we split it by distance, into local and global parts, by book, against a count cache, and by the part of the network that is updated.
 
-\section{Method}
+\section{Setup}
 
-\subsection{Contexts and streams}
+\paragraph{Models.}
+Pythia-14M \cite{biderman2023pythia} (14.07M parameters: 6 layers of width 128, plus untied input and output embeddings of 6.44M parameters each), and for the size comparison Pythia-31M (30.49M) and Pythia-70M (70.43M), all with 6 layers and the same tokenizer; float32 on CPU.
 
-A context is one of 8 rotations of the image, by $k \cdot 22.5$ degrees for $k = 0, \dots, 7$ (bilinear, black outside the image), applied before normalization.
-A stream is a sequence of MNIST test images, each shown under the context of its burst.
-Every burst holds all ten digits under one context, and consecutive bursts have different contexts.
-The labels are uniform everywhere, so the recent labels carry no information.
+\paragraph{Data.}
+PG-19 test books \cite{rae2020compressive}, in the order the Hugging Face dataset gives them.
+Books with fewer than 20k tokens (three single short stories) are skipped; each remaining book is cut to its first 20k tokens.
+The first 25 books, concatenated, form the stream (500k tokens); the next 2 books are \emph{check books}, used only to pick learning rates.
+Pythia was trained on the Pile \cite{gao2020pile}, whose PG-19 component has 28{,}602 documents \cite{biderman2022datasheet}, exactly the size of PG-19's training split; the test books are therefore very likely not in Pythia's training data, although copies elsewhere in the Pile were not checked.
 
-The \emph{short} stream has 10{,}000 positions, with every test image once in a random order, split into 88 bursts of 20 to 200 images (113.6 on average); each context starts 4 to 14 bursts.
-The \emph{L1000} stream has 80{,}000 positions, with every test image once under every context, in 80 bursts of exactly 1000 images, 10 per context.
-In L1000 every test image appears 8 times, once per rotation.
+\paragraph{Protocol.}
+The stream is cut into non-overlapping chunks of $L = 256$ tokens.
+Each chunk is scored on its own, with no attention to earlier chunks; every token but the chunk's first is predicted from the tokens before it in the chunk.
+Online, after scoring a chunk the model takes one plain SGD step (no momentum, no weight decay) on the mean loss of that chunk, which is a prequential protocol: every token is predicted before it is trained on.
+The frozen model reads the same stream without updates.
+Some runs update only part of the network: the output embedding, everything but the output embedding, the MLPs or the attention of all layers, or the MLP of one layer.
 
-Each stream has a control: a random permutation of the same positions, with each image keeping its context.
-It contains exactly the same images, so any difference in accuracy comes from their order.
-The control is not a scenario we expect in practice: we assume that the real input streams have temporal locality and are not random.
-Its only purpose is to show whether a gain from online learning comes from that locality or merely from training on more data, including, in L1000, learning the repeated images.
+\paragraph{Learning rates.}
+Each run's learning rate is the one with the lowest mean loss on the 2 check books, from a small grid (three values); from the last test on, a pick at the edge of its grid extends the grid once by one step.
+For Pythia-14M with all parameters the pick is $10^{-4}$ (check-book loss 4.4775, against 4.5474 frozen).
 
-\subsection{Protocol}
+\paragraph{Metrics.}
+The \emph{gain} of a run is the frozen loss minus the run's loss over the same tokens, in nats/token; each model is compared with its own frozen loss.
+For each scored token we find the previous occurrence of the same token id anywhere earlier in the stream and bin the token by where it is: in the \emph{same chunk} (attention can see it), in an \emph{earlier chunk} under 1k, 1k--10k, 10k--100k or at least 100k tokens back, or \emph{never seen}.
+The 1000 most frequent token ids in the stream are left out of the bins, since they are always recent (139{,}281 of the 498{,}046 scored tokens remain).
+Earlier-chunk bins are further split by whether the previous occurrence is in the token's own book or an earlier one.
+The \emph{locality} is the gain in the original order minus the gain on the same chunks in a shuffled order (one random permutation, seed 0), per token: the part of the gain that needs the recent material.
+For eviction, the \emph{memory of A} is defined in Section~\ref{sec:eviction}.
 
-Each model is first trained offline and then processes a stream one image at a time.
-For each image, the model first predicts its label, and the prediction counts towards the online accuracy.
-Then it takes one update on that single image with its true label.
-This assumes that the label becomes available after each prediction, as in prequential evaluation.
-Each stream starts from the same offline weights.
+\section{Results}
 
-We report these quantities, all on the same positions of a stream:
-\begin{itemize}
-  \item \emph{frozen accuracy}: the offline model without updates (equal on a stream and its control, since they hold the same images under the same contexts);
-  \item \emph{online accuracy on bursts} and \emph{on the shuffled control};
-  \item \emph{online gain}: online accuracy on bursts minus frozen accuracy;
-  \item \emph{locality effect}: online accuracy on bursts minus online accuracy on the shuffled control.
-\end{itemize}
-Differences are given in percentage points (pp).
-The online gain tells whether online learning is worth it.
-The locality effect isolates the part of the gain that comes from temporal locality, removing the effect of simply training more and of seeing images more than once.
+\subsection{The online gain reaches beyond the window and fades by 10k tokens}
 
-\subsection{Model and baseline}
+Online learning lowers Pythia-14M's loss from 4.3922 to 4.2929 nats/token (gain $+0.099$, Table~\ref{tab:distance}, Figure~\ref{fig:distance}a); for rare tokens last seen in an earlier chunk, the gain falls from $+0.301$ under 1k tokens back to $-0.035$ beyond 100k.
+Never-seen tokens lose ($-0.062$): online learning moves probability towards recent material at the expense of the rest.
+Tokens repeated inside their own chunk also lose ($-0.107$): attention already copies them, and the updates work against that.
+After each switch to a new book the gain starts near zero and grows with the position in the book, from $+0.009$ in the first 1k tokens to $+0.080$ at 3k--4k and $+0.145$ at 19k--20k, with no plateau within the 20k tokens of a book (Figure~\ref{fig:distance}b).
 
-The model is a multilayer perceptron with one hidden layer of $h$ ReLU units, $784 \rightarrow h \rightarrow 10$, with $h = 8$ (24.9\,KB as 32 bit floats) and $h = 4$ (12.5\,KB).
-The baseline is the \emph{mixed} model: the same network trained offline on the 60{,}000 training images, each sampled image shown under a context drawn at random, with Adam \cite{kingma2015adam} (learning rate 0.001, batch 128, 50 epochs, seed 0).
-On the test set, averaged over the contexts, it reaches 74.05\% ($h = 8$) and 64.78\% ($h = 4$).
-A model of the same size trained on one context only reaches 93.26\% and 87.31\% on it, so there is roughly $+19$ to $+23$\,pp to gain by adapting to the current context.
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+bin (previous occurrence) & tokens & frozen loss & online, in order & online, shuffled & locality \\
+\midrule
+all tokens & 498046 & 4.3922 & $+0.099$ & $+0.061$ & $+0.038$ \\
+same chunk & 9881 & 5.0194 & $-0.107$ & $-0.138$ & $+0.030$ \\
+earlier chunk, $<$ 1k & 17054 & 7.3382 & $+0.301$ & $+0.054$ & $+0.247$ \\
+earlier chunk, 1k--10k & 34076 & 7.0001 & $+0.143$ & $+0.038$ & $+0.105$ \\
+earlier chunk, 10k--100k & 44133 & 7.1181 & $+0.010$ & $+0.023$ & $-0.014$ \\
+earlier chunk, $\geq$ 100k & 13178 & 7.8193 & $-0.035$ & $-0.018$ & $-0.017$ \\
+never seen & 20959 & 8.1856 & $-0.062$ & $-0.055$ & $-0.007$ \\
+\bottomrule
+\end{tabular}
+\caption{Gain over the frozen model (nats/token) by distance to the token's previous occurrence, Pythia-14M, all parameters updated online (lr $10^{-4}$). Shuffled: the same chunks in a random order. Locality = in order $-$ shuffled. The 1000 most frequent token ids are excluded from the bins, not from ``all tokens''.}
+\label{tab:distance}
+\end{table}
 
-\subsection{Online methods}
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/distance_position.pdf}
+\caption{(a) Gain over frozen by distance bin for online learning in order and with shuffled chunks, the unigram cache on the frozen model, and online learning combined with the cache. (b) Gain of online learning (in order) by position in the book, mean over the 24 books that follow a book switch, $\pm 1$ standard error over books.}
+\label{fig:distance}
+\end{figure}
 
-All three methods share one update.
-The network predicts with $S + F$, where $S$ starts at the mixed model and $F$ at zero.
-After each image, with $g$ the gradient of its loss at $S + F$,
-\begin{align*}
-S &\leftarrow S - \eta_\text{slow}\, g, \\
-F &\leftarrow \lambda F - \eta_\text{fast}\, g,
-\end{align*}
-the second line only on the parameters that have a fast part.
-The fast part is a decaying sum of recent gradients: it follows the current burst and forgets it within about $1/(1-\lambda)$ images.
-\begin{itemize}
-  \item \emph{SGD} (Experiment~1): plain SGD, no fast part.
-  \item \emph{Slow and fast weights} (Experiment~2): a fast part on the first layer, weights and bias.
-  \item \emph{Meta-SGD} (Experiment~3): $\eta_\text{slow} = 0$ and a fast part on every parameter, with $\eta_\text{fast}$ and $\lambda$ replaced by per-parameter tensors $\alpha > 0$ and $0 < \lambda < 1$.
-\end{itemize}
+\subsection{The long-range gain is local}
 
-For Meta-SGD, $S$, $\alpha$ and $\lambda$ are meta-learned \cite{li2017metasgd} on training images only, on episodes of 3 bursts of 20 to 60 images under different contexts.
-The meta-loss is the mean prediction loss over the episode, backpropagated through the whole online unroll; the per-image gradient is written in closed form, so the meta-gradient is exact.
-Meta-training uses Adam (learning rate 0.001), 32 episodes per step, gradient clipping at norm 1, $\alpha = 10^{-3}$ and $\lambda = 0.99$ at the start, $S$ starting at the mixed model, and early stopping on 256 held-out episodes, with at most 15 minutes per model; every run reached that limit (4800 to 5850 steps).
-A second variant keeps $S$ fixed at the mixed model and learns only $\alpha$ and $\lambda$.
-The same checkpoints are evaluated on both streams.
+Shuffling the chunks across all books keeps the training data and removes the order.
+The shuffled learner still gains $+0.061$ overall, 61\% of the in-order gain: most of the overall gain is adaptation to old books in general.
+But the gain beyond the window needs the order: under 1k tokens back only 18\% survives shuffling ($+0.054$ of $+0.301$, locality $+0.247$), and at 1k--10k only 27\% ($+0.038$ of $+0.143$, locality $+0.105$).
+Beyond 10k the shuffled learner is slightly better (locality $-0.014$ and $-0.017$): the in-order learner uses nothing that far back.
 
-Each method is run at a handful of settings, compared on the evaluation streams themselves.
-All runs use seed 0.
+\subsection{It is mostly about being in the same book}
 
-\section{Experiments}
+Table~\ref{tab:samebook} splits each earlier-chunk bin by whether the previous occurrence is in the same book (books are 20k tokens long, so at most 20k tokens back) or in an earlier book.
+At 1k--10k tokens back, the locality is $+0.117$ for same-book tokens and $+0.025$ for earlier-book tokens.
+Same-book tokens 10k--20k back still have a locality of $+0.038$, more than earlier-book tokens that are closer (1k--10k), while earlier-book tokens at 10k--100k have none ($-0.020$).
+The fall of the gain with distance in Table~\ref{tab:distance} is therefore largely the fall in the share of same-book tokens, although distance still matters within a book (locality $+0.248$, $+0.117$ and $+0.038$).
+The unigram cache shows the opposite pattern: it ignores the book and fades with distance.
 
-Table~\ref{tab:results} gives the results of the three experiments, Figure~\ref{fig:compare} compares the best setting of each method and Figure~\ref{fig:curve} shows how accuracy evolves within a burst.
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{llrrrrr}
+\toprule
+bin & previous occurrence & tokens & in order & shuffled & locality & unigram cache \\
+\midrule
+earlier chunk, $<$ 1k & same book & 16988 & $+0.302$ & $+0.054$ & $+0.248$ & $+0.463$ \\
+earlier chunk, 1k--10k & same book & 29680 & $+0.155$ & $+0.038$ & $+0.117$ & $+0.069$ \\
+ & earlier book & 4396 & $+0.065$ & $+0.040$ & $+0.025$ & $-0.016$ \\
+earlier chunk, 10k--100k & same book & 4814 & $+0.065$ & $+0.027$ & $+0.038$ & $-0.050$ \\
+ & earlier book & 39319 & $+0.003$ & $+0.023$ & $-0.020$ & $-0.051$ \\
+\bottomrule
+\end{tabular}
+\caption{Gain over frozen (nats/token) split by whether the previous occurrence is in the same book or an earlier one, Pythia-14M. The earlier-book part of the $<$ 1k bin (66 tokens) and the $\geq$ 100k bin (all earlier book) are omitted.}
+\label{tab:samebook}
+\end{table}
+
+\subsection{More than a count cache, and complementary to it}
+
+Table~\ref{tab:baselines} compares online learning with a unigram cache on the frozen model, $p = (1-\lambda)\,p_\text{model} + \lambda\,p_\text{cache}$, where $p_\text{cache}$ holds the normalized, exponentially decaying counts of the token ids seen so far, updated after each chunk like the online learner ($\lambda = 0.05$, half-life 1k tokens, picked on the check books).
+The cache is the better short-range copier: $+0.462$ under 1k tokens and $+0.089$ on tokens repeated within the chunk, where online learning loses.
+From 1k tokens on, online learning is better ($+0.143$ against $+0.058$ at 1k--10k), and overall it gains six times more ($+0.099$ against $+0.017$).
+The two combine: mixing the same cache into the online learner's predictions gives $+0.673$ under 1k and $+0.185$ at 1k--10k.
+Beyond 10k tokens and on never-seen tokens the combination loses more, so overall it is only slightly better than online learning alone ($+0.102$ against $+0.099$); the mixing weight was picked for the frozen model.
+
+Updating everything but the output embedding reproduces the full learner in every bin ($+0.094$ overall).
+Updating only the output embedding depends strongly on the learning rate: at $10^{-3}$, the best of the first grid, it gains $+0.045$ with almost no dependence on distance; at $3 \times 10^{-3}$, found later and itself at the edge of the grid, it becomes a short-range cache ($+0.251$ under 1k tokens, $+0.092$ in the same chunk) that still falls off quickly ($+0.066$ at 1k--10k) and costs more beyond 10k.
+The long-range gain lives below the output layer.
 
 \begin{table}[t]
 \centering
 \small
 \setlength{\tabcolsep}{4pt}
-\caption{Online gain (bursts minus frozen) / locality effect (bursts minus shuffled), in pp. Short: bursts of 20 to 200 images; L1000: bursts of 1000. Experiment 2: $\eta_\text{slow}$, $\eta_\text{fast}$, $\lambda$, fast part on the first layer.}
-\label{tab:results}
-\begin{tabular}{ll rrrr}
+\begin{tabular}{lrrrrrr}
 \toprule
- & & \multicolumn{2}{c}{short} & \multicolumn{2}{c}{L1000} \\
-\cmidrule(lr){3-4} \cmidrule(lr){5-6}
- & setting & $h = 8$ & $h = 4$ & $h = 8$ & $h = 4$ \\
+bin & online, all & unigram & online & output only & output only & all but \\
+ & parameters & cache & + cache & (lr $10^{-3}$) & (lr $3\!\times\!10^{-3}$) & output \\
 \midrule
- & frozen mixed model (\%) & 73.25 & 64.41 & 74.05 & 64.78 \\
-\midrule
-1 & SGD, $\eta = 10^{-5}$ & $+0.25$ / $+0.21$ & $+0.09$ / $+0.05$ & $+0.53$ / $+0.10$ & $+0.37$ / $-0.01$ \\
-  & SGD, $\eta = 10^{-4}$ & $+0.17$ / $+0.00$ & $-0.15$ / $-0.01$ & $+0.69$ / $+0.35$ & $+0.66$ / $+0.33$ \\
-  & SGD, $\eta = 10^{-3}$ & $-2.88$ / $+0.61$ & $-2.40$ / $+0.39$ & $+0.20$ / $+2.81$ & $+1.58$ / $+3.24$ \\
-  & SGD, $\eta = 3 \cdot 10^{-3}$ & $-7.03$ / $+0.86$ & $-5.13$ / $+1.28$ & $-0.63$ / $+5.89$ & $+1.41$ / $+6.66$ \\
-\midrule
-2 & $10^{-4}$, $10^{-3}$, 0.99 & $+0.28$ / $+0.29$ & $+0.09$ / $+0.26$ & $+1.10$ / $+0.93$ & $+1.43$ / $+1.33$ \\
-  & $10^{-4}$, $3 \cdot 10^{-3}$, 0.997 & $+0.07$ / $+1.12$ & $-0.36$ / $+0.99$ & $+2.92$ / $+3.64$ & $+3.99$ / $+4.90$ \\
-  & $10^{-4}$, $10^{-2}$, 0.999 & $-3.47$ / $+2.09$ & $-3.07$ / $+2.47$ & $+4.11$ / $+8.47$ & $+6.11$ / $+10.22$ \\
-  & $0$, $10^{-2}$, 0.999 & $-3.66$ / $+2.04$ & $-3.77$ / $+3.06$ & $+2.87$ / $+8.81$ & $+3.02$ / $+9.57$ \\
-\midrule
-3 & Meta-SGD & $+2.70$ / $+3.56$ & $+2.36$ / $+4.05$ & $+3.51$ / $+3.99$ & $+3.77$ / $+4.41$ \\
-  & Meta-SGD, $S$ fixed & $+1.19$ / $+1.20$ & $+1.07$ / $+1.31$ & $+1.89$ / $+1.99$ & $+1.87$ / $+2.05$ \\
+all tokens & $+0.099$ & $+0.017$ & $+0.102$ & $+0.045$ & $+0.072$ & $+0.094$ \\
+same chunk & $-0.107$ & $+0.089$ & $-0.025$ & $+0.011$ & $+0.092$ & $-0.105$ \\
+earlier chunk, $<$ 1k & $+0.301$ & $+0.462$ & $+0.673$ & $+0.061$ & $+0.251$ & $+0.290$ \\
+earlier chunk, 1k--10k & $+0.143$ & $+0.058$ & $+0.185$ & $-0.001$ & $+0.066$ & $+0.139$ \\
+earlier chunk, 10k--100k & $+0.010$ & $-0.051$ & $-0.041$ & $-0.039$ & $-0.054$ & $+0.009$ \\
+earlier chunk, $\geq$ 100k & $-0.035$ & $-0.051$ & $-0.086$ & $-0.075$ & $-0.146$ & $-0.034$ \\
+never seen & $-0.062$ & $-0.051$ & $-0.113$ & $-0.064$ & $-0.143$ & $-0.058$ \\
 \bottomrule
 \end{tabular}
+\caption{Gain over frozen (nats/token) of online learning, a unigram cache on the frozen model, their combination, and online learning restricted to the output embedding or to everything else (Pythia-14M; lr $10^{-4}$ unless stated).}
+\label{tab:baselines}
+\end{table}
+
+\subsection{Eviction: a book's memory decays slowly}
+\label{sec:eviction}
+
+To measure eviction we split three books A (a memoir, a novel and a travel book) into halves A1 and A2 of 10k tokens.
+Online learning runs on A1, then an interlude of $I \in \{0, 10\text{k}, 100\text{k}\}$ tokens of other books, then A2; a second run replaces A1 by the first 10k tokens of a different book B1.
+Both runs have adapted to books in general by the time they reach A2; only the first has seen A.
+The \emph{memory of A} is the loss on A2 after B1 minus the loss on A2 after A1.
+
+With all parameters updated, the memory of A is $+0.038$ nats/token at $I = 0$, $+0.027$ after 10k tokens and $+0.019$ after 100k (mean of the 3 books; all three are positive at every $I$; Figure~\ref{fig:eviction}).
+About 44\% of the A1 run's gain on A2 at $I = 0$ ($+0.086$) is specific to the book.
+The memory halves over 100k tokens, but not because the A1 run forgets: its gain on A2 is flat ($+0.086$, $+0.082$, $+0.085$), while the B1 run's grows ($+0.048$, $+0.055$, $+0.067$) as more books add general adaptation.
+Losing A-specific memory and gaining general adaptation may cancel in the A1 run; this test cannot separate them.
+Updating everything but the output embedding gives a similar memory ($+0.035$, $+0.024$, $+0.016$); output only (lr $10^{-3}$) starts lower ($+0.025$) and decays more slowly ($+0.014$ at 100k); the unigram cache keeps $+0.008$ at $I = 0$ and nothing after 10k tokens.
+Book-level memory thus lasts much longer than the token-level gain of Table~\ref{tab:distance}: what lasts may be a book's style and vocabulary rather than specific tokens.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.5\linewidth]{figures/eviction.pdf}
+\caption{Memory of book A (loss on A2 after B1 minus loss on A2 after A1) against the number of tokens of other books between A1 and A2, mean of 3 books, Pythia-14M.}
+\label{fig:eviction}
+\end{figure}
+
+\subsection{The memory lives in the MLPs}
+
+Updating only the MLPs of all six layers (0.79M parameters, lr $10^{-4}$) keeps most of the long-range gain ($+0.216$ under 1k tokens and $+0.123$ at 1k--10k, 72\% and 86\% of the full learner); updating only attention (0.40M) keeps less ($+0.142$, $+0.092$).
+Table~\ref{tab:layers} goes further: the MLP of a single layer (131{,}712 parameters), with the learning rate picked per layer.
+Every layer's MLP but the last holds a large part of the memory, and the middle ones the most: the MLP of layer 2 or 4 alone gains $+0.395$ and $+0.357$ under 1k tokens, more than the full learner ($+0.301$), and $+0.133$ and $+0.135$ at 1k--10k in the same book (full learner $+0.155$; Figure~\ref{fig:layers}a).
+The last layer's MLP is the weakest ($+0.108$, $+0.052$).
+The single-layer runs use higher learning rates (up to $3 \times 10^{-3}$, at the edge of the grid) and pay for their larger short-range gains with larger losses on tokens not seen recently (layer 2: $-0.129$ on never-seen tokens).
+With tuned rates, the MLPs of the last two layers together keep $+0.225$ under 1k tokens, about what all six keep at $10^{-4}$; an earlier run at $10^{-4}$ had lost almost all of it, which was under-tuning.
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lrrrrrrrrr}
+\toprule
+bin & all & MLP & MLP & \multicolumn{6}{c}{MLP of layer} \\
+\cmidrule(lr){5-10}
+ & params & all 6 & last 2 & 1 & 2 & 3 & 4 & 5 & 6 \\
+learning rate & $10^{-4}$ & $10^{-4}$ & $10^{-3}$ & $10^{-3}$ & $3\!\times\!10^{-3}$ & $3\!\times\!10^{-4}$ & $3\!\times\!10^{-3}$ & $3\!\times\!10^{-3}$ & $10^{-3}$ \\
+\midrule
+all tokens & $+0.099$ & $+0.085$ & $+0.070$ & $+0.052$ & $+0.055$ & $+0.055$ & $+0.067$ & $+0.072$ & $+0.047$ \\
+same chunk & $-0.107$ & $-0.086$ & $-0.076$ & $-0.079$ & $-0.137$ & $-0.088$ & $-0.093$ & $-0.076$ & $-0.053$ \\
+$<$ 1k & $+0.301$ & $+0.216$ & $+0.225$ & $+0.229$ & $+0.395$ & $+0.202$ & $+0.357$ & $+0.285$ & $+0.108$ \\
+1k--10k, same book & $+0.155$ & $+0.130$ & $+0.104$ & $+0.115$ & $+0.133$ & $+0.093$ & $+0.135$ & $+0.120$ & $+0.052$ \\
+10k--100k, same book & $+0.065$ & $+0.063$ & $+0.029$ & $+0.049$ & $+0.002$ & $+0.026$ & $+0.015$ & $+0.028$ & $+0.009$ \\
+never seen & $-0.062$ & $-0.055$ & $-0.095$ & $-0.054$ & $-0.129$ & $-0.058$ & $-0.116$ & $-0.090$ & $-0.084$ \\
+\bottomrule
+\end{tabular}
+\caption{Gain over frozen (nats/token) when only some MLPs of Pythia-14M are updated online, in order. Distance bins are earlier-chunk bins. Learning rates were picked on the check books; those at $3 \times 10^{-3}$ are at the edge of the extended grid.}
+\label{tab:layers}
 \end{table}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.85\linewidth]{figures/ctx_compare.pdf}
-\caption{Online gain (solid) and locality effect (hatched) of the best setting of each method, chosen by mean gain over sizes and streams. Blue: SGD ($\eta = 10^{-4}$); orange: slow and fast weights ($10^{-4}$, $3 \cdot 10^{-3}$, 0.997); green: Meta-SGD.}
-\label{fig:compare}
+\includegraphics[width=\linewidth]{figures/layers_size.pdf}
+\caption{(a) Gain of online learning restricted to the MLP of one layer of Pythia-14M, with the learning rate picked per layer. (b) Locality (gain in order minus gain shuffled) and overall gain of full online learning for Pythia-14M, 31M and 70M, each at its own learning rate.}
+\label{fig:layers}
 \end{figure}
 
-\begin{figure}[t]
+\subsection{Model size: flat from 14M to 31M, a drop at 70M}
+
+Table~\ref{tab:size} repeats the in-order and shuffled runs for Pythia-31M and 70M, each at its own learning rate.
+The locality does not fall steadily with size (Figure~\ref{fig:layers}b).
+31M matches or slightly exceeds 14M: $+0.270$ against $+0.247$ under 1k tokens, $+0.131$ against $+0.117$ at 1k--10k in the same book.
+At 70M it almost vanishes ($+0.016$ and $+0.010$), and the overall gain drops to $+0.024$.
+The drop is not a matter of a missing learning rate in the grid: 70M's best rate, $10^{-5}$, lowers its check-book loss by only 0.011 nats/token (31M: 0.057 at $3\times10^{-4}$; 14M: 0.070 at $10^{-4}$), and an earlier run at $3\times10^{-5}$ had a larger locality ($+0.047$) but a worse check-book loss.
+With one seed and three sizes, the pattern looks more like something specific to how 70M responds to plain SGD than a smooth trend.
+
+\begin{table}[t]
 \centering
-\includegraphics[width=\linewidth]{figures/ctx_burst_short.pdf}
-\includegraphics[width=\linewidth]{figures/ctx_burst_L1000.pdf}
-\caption{Online accuracy against position within the burst (binned, log scale) for the settings of Figure~\ref{fig:compare}, on the short stream (top) and L1000 (bottom). Dashed: the frozen mixed model.}
-\label{fig:curve}
-\end{figure}
+\small
+\begin{tabular}{lrrrrrr}
+\toprule
+ & \multicolumn{2}{c}{Pythia-14M} & \multicolumn{2}{c}{Pythia-31M} & \multicolumn{2}{c}{Pythia-70M} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+learning rate & \multicolumn{2}{c}{$10^{-4}$} & \multicolumn{2}{c}{$3\times10^{-4}$} & \multicolumn{2}{c}{$10^{-5}$} \\
+frozen loss (all tokens) & \multicolumn{2}{c}{4.3922} & \multicolumn{2}{c}{4.0404} & \multicolumn{2}{c}{3.8185} \\
+\midrule
+bin & in order & locality & in order & locality & in order & locality \\
+\midrule
+all tokens & $+0.099$ & $+0.038$ & $+0.085$ & $+0.039$ & $+0.024$ & $+0.004$ \\
+same chunk & $-0.107$ & $+0.030$ & $-0.102$ & $-0.012$ & $-0.039$ & $-0.018$ \\
+earlier chunk, $<$ 1k & $+0.301$ & $+0.247$ & $+0.373$ & $+0.270$ & $+0.048$ & $+0.016$ \\
+1k--10k, same book & $+0.155$ & $+0.117$ & $+0.171$ & $+0.131$ & $+0.034$ & $+0.010$ \\
+1k--10k, earlier book & $+0.065$ & $+0.025$ & $+0.050$ & $+0.037$ & $+0.026$ & $+0.008$ \\
+10k--100k, same book & $+0.065$ & $+0.038$ & $+0.059$ & $+0.038$ & $+0.019$ & $+0.005$ \\
+never seen & $-0.062$ & $-0.007$ & $-0.041$ & $-0.020$ & $-0.037$ & $-0.014$ \\
+\bottomrule
+\end{tabular}
+\caption{Gain over each model's own frozen loss (nats/token) and locality, full online learning.}
+\label{tab:size}
+\end{table}
 
-\subsection{Experiment 1: online SGD}
+\section{Discussion and limitations}
 
-On the short stream, plain online SGD stays within $\pm 0.25$\,pp of the frozen model at small learning rates and loses 2 to 7\,pp at larger ones.
-On L1000 it gains at most $+0.69$\,pp ($h = 8$) and $+1.58$\,pp ($h = 4$).
-Larger learning rates have a larger locality effect (up to $+6.66$\,pp): they adapt within a burst and reach 75.6\% ($h = 8$) and 68.4\% ($h = 4$) after the 200th image at $\eta = 3 \cdot 10^{-3}$.
-But they lose most of it after each context switch, falling to 50--58\% over the first 10 images of an L1000 burst.
-With small learning rates, part of the L1000 gain is not locality: the shuffled control also beats the frozen model, by learning the repeated images.
+The results support a qualified version of the cache picture.
+Online learning gives a small language model a memory beyond its attention window, and the long-range part of it is local.
+But it behaves less like a cache of recent tokens than like a memory of the current book: its gain follows book membership more than distance, the memory of a book is still half its size after 100k tokens of other books, and a count cache does the short-range copying better.
+The general knowledge in the weights is only partly kept: tokens not seen recently are predicted slightly worse ($-0.062$ for never-seen tokens), the cost of moving probability towards the current context.
+That the memory sits in the MLPs, and that one middle-layer MLP can carry it, fits the view of feed-forward layers as key-value memories \cite{geva2021transformer} and the choice of MLP weights as fast weights in recent test-time training \cite{feng2026inplace}.
 
-\subsection{Experiment 2: slow and fast weights}
+These are preliminary results with clear limitations.
+\begin{itemize}
+\item \textbf{One seed, few books.} One seed and one chunk order per run; three books in the eviction test. Differences of a few thousandths of a nat are within noise.
+\item \textbf{Plain SGD, per-run learning rates} picked from three or four values on two books, several at the edge of their grid. Comparisons across layers and sizes mix in the learning rate.
+\item \textbf{Short books} (20k tokens): same-book memory beyond 20k tokens and the plateau of the per-book gain are not observed.
+\item \textbf{Three model sizes, non-monotonic.} The collapse at 70M may come from the optimizer rather than from size.
+\item \textbf{Capacity not tested.} The eviction test cannot separate forgetting a book from adapting to books in general.
+\item \textbf{Contamination} is very likely absent from the Pile's PG-19 component, but the rest of the Pile was not checked.
+\end{itemize}
 
-A fast first layer gains clearly on L1000: $+4.11$\,pp ($h = 8$) and $+6.11$\,pp ($h = 4$) with $\eta_\text{fast} = 10^{-2}$ and $\lambda = 0.999$, with a locality effect of $+8.47$ and $+10.22$\,pp.
-On the short stream it loses 3 to 4\,pp: accuracy falls to 56--67\% over the first 50 images of a burst and needs about 100 images to recover, longer than most short bursts.
-Settings with a smaller fast learning rate lose less after a switch but gain less on long bursts; none gains more than $+0.3$\,pp on the short stream.
-With the slow learning rate at 0 the gain on L1000 drops to $+2.9$ and $+3.0$\,pp: the slow part contributes $+1.2$ to $+3.1$\,pp, partly by learning the repeated images.
+Next steps follow directly.
+Interleaving $K$ books chunk by chunk, with $K$ growing, would measure the capacity of the weights as a cache.
+An update normalized across sizes (per layer or per parameter, or a fixed relative weight change) would make the size comparison fairer, and more sizes would show whether the drop at 70M is a trend.
+PolyPythias \cite{vanderwal2025polypythias}, which provides several pre-training seeds per Pythia size, would give error bars across models.
 
-\subsection{Experiment 3: Meta-SGD}
+\section{Conclusion}
 
-Meta-SGD is the only method that gains on the short stream: $+2.70$\,pp ($h = 8$) and $+2.36$\,pp ($h = 4$), with locality effects of $+3.56$ and $+4.05$\,pp.
-Its switching cost is small: over the first 10 images of a short burst it is 0.6 to 1.2\,pp below the frozen model, and above it from the 11th image on.
-On L1000 it gains $+3.51$ and $+3.77$\,pp, less than the best fast first layer, because its accuracy stops rising after about 50 images: the meta-learned decays (median $\lambda$ between 0.74 and 0.97 depending on the layer) forget faster than a burst of 1000 needs, since meta-training only saw bursts of 20 to 60.
-Learning $S$ matters: with $S$ fixed the gain roughly halves ($+1.07$ to $+1.89$\,pp).
-Yet the meta-learned $S$ alone, frozen, is within $-0.3$ to $+0.5$\,pp of the mixed model, so learning $S$ mostly makes the model easier to adapt rather than more accurate by itself.
+A small language model that takes one SGD step on each chunk it reads gains a memory beyond its attention window.
+In Pythia-14M on PG-19 books this memory is local, tied mostly to the current book rather than to the recency of individual tokens, stored in the MLPs below the output layer, complementary to a count cache, and slow to fade when other books follow.
+It is as strong at 31M parameters and nearly absent at 70M under plain SGD.
+Whether it behaves like a cache with a measurable capacity is the next question.
 
-\section{Discussion}
-
-With the locality in the inputs, plain online SGD is not worth it: the frozen mixed model is hard to beat, even though a model per rotation would be 19 to 23\,pp more accurate.
-What decides the outcome is the cost of each context switch against the length of the context.
-Seen this way, the fast learning rate and the decay set the length of the model's memory: a faster setting adapts faster and forgets faster.
-A fast first layer that adapts strongly pays off on bursts of 1000 images, but after a switch it is worse than the frozen model for about 100 images, so it loses on bursts of 20 to 200.
-Meta-learning the fast learning rates, the decays and the slow weights produces a model that adapts within a few images and loses little at a switch, and it is the first method to gain on short bursts.
-But it captures only a small part of the headroom, and it is tied to the burst lengths it was meta-trained on.
-
-The shuffled control is not a deployment scenario: we assume that real streams have temporal locality.
-It shows that every way of exploiting the bursts more strongly, from a larger learning rate to fast weights, relies more on that locality and would not help on a stream without it.
-
-The results also have clear limits.
-The task is MNIST and the stream is synthetic, with an idealized form of locality: bursts with sharp boundaries and a single rotation each.
-The online model receives the true label right after each prediction, which many applications cannot provide.
-Every result comes from a single run with seed 0, so differences below about 0.5\,pp may not be meaningful.
-The settings were compared on the evaluation streams, so the best ones are slightly optimistic, and meta-training was limited to 15 minutes per model and had not converged.
-The L1000 stream shows every test image 8 times; the shuffled control has the same repetitions, so the locality effect cancels them, but the online gain does not.
-
-\section{Conclusion and next steps}
-
-When the locality of a stream is in the inputs, small models gain little from plain online learning.
-Plain SGD barely beats the frozen model trained on all rotations, a fast first layer gains up to $+6.1$\,pp only when the bursts are long (1000 images), and Meta-SGD is the only method that also gains on bursts of 20 to 200 images ($+2.4$ to $+2.7$\,pp).
-The cost of a context switch, not the speed of adaptation alone, is what limits online learning on short contexts.
-
-Next steps include lowering that cost (for example by resetting the fast part when the model detects a switch), meta-training on episodes as long as the bursts or with a floor on the decay, repeating the runs with several seeds, tuning on separate streams, testing streams with natural locality (for example video) and other architectures, and replacing the true labels with weaker feedback.
-
+{\small
+\setlength{\bibsep}{1.5pt plus 0.5pt}
 \bibliographystyle{plainnat}
 \bibliography{references}
+}
 
 \end{document}

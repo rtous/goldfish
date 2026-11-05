@@ -222,5 +222,5 @@ __marimo__/
 # macOS
 .DS_Store
 
-# Omniglot raw zips and processed cache (downloaded by experiments_OMNIGLOT/data.py)
-experiments_OMNIGLOT/data/
+# experiments_LLM2_cache: PG-19 books, Hugging Face downloads and token caches
+experiments_LLM2_cache/data/

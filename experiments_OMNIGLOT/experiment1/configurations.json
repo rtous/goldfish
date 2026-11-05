@@ -1,0 +1,24 @@
+{
+  "archs": ["A", "B"],
+  "seed": 0,
+  "configurations": [
+    {"name": "frozen", "method": "frozen"},
+    {"name": "prior", "method": "prior", "tuned": true},
+    {"name": "mask", "method": "mask"},
+    {"name": "bias_sgd_1e-1", "method": "sgd", "lr": 0.1, "layers": "out_bias"},
+    {"name": "bias_sgd_3e-1", "method": "sgd", "lr": 0.3, "layers": "out_bias"},
+    {"name": "bias_sgd_1", "method": "sgd", "lr": 1.0, "layers": "out_bias"},
+    {"name": "bias_sgd_3", "method": "sgd", "lr": 3.0, "layers": "out_bias"},
+    {"name": "cache_M100", "method": "cache", "M": 100},
+    {"name": "cache_M500", "method": "cache", "M": 500},
+    {"name": "sgd_1e-4", "method": "sgd", "lr": 0.0001},
+    {"name": "sgd_3e-4", "method": "sgd", "lr": 0.0003},
+    {"name": "sgd_1e-3", "method": "sgd", "lr": 0.001},
+    {"name": "sgd_3e-3", "method": "sgd", "lr": 0.003},
+    {"name": "dual_f3e-4_d0.99", "method": "dual", "lr": 1e-05, "fast_lr": 0.0003, "decay": 0.99},
+    {"name": "dual_f1e-3_d0.995", "method": "dual", "lr": 1e-05, "fast_lr": 0.001, "decay": 0.995},
+    {"name": "dual_f3e-3_d0.999", "method": "dual", "lr": 1e-05, "fast_lr": 0.003, "decay": 0.999},
+    {"name": "metasgd", "method": "metasgd", "meta": {"learn_S": true, "lr": 0.001, "meta_batch": 8, "clip": 1.0, "init_alpha": 0.001, "init_lambda": 0.99, "bursts": 2, "max_chars": 25, "eval_every": 25, "patience": 20, "val_episodes": 64, "max_minutes": 15}},
+    {"name": "metasgd_fixedS", "method": "metasgd", "meta": {"learn_S": false, "lr": 0.001, "meta_batch": 8, "clip": 1.0, "init_alpha": 0.001, "init_lambda": 0.99, "bursts": 2, "max_chars": 25, "eval_every": 25, "patience": 20, "val_episodes": 64, "max_minutes": 15}}
+  ]
+}

@@ -1,0 +1,3 @@
+arch,widths,params,kb,steps,final_loss,mixed,mixed_masked,per_alphabet
+A,64x64,159895,624.6,28575,0.8833,53.19,78.84,73.87
+B,62x62x62,158731,620.0,31750,0.8355,52.13,78.54,72.91

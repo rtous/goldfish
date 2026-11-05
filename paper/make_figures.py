@@ -138,8 +138,62 @@ def layers_and_size():
     fig.savefig(os.path.join(FIG, "layers_size.pdf"))
 
 
+def locality_levels():
+    """Test 7 (settings across streams) and tests 8 / 10 (dual on K = 1, shuffled, long): gain over frozen 14M."""
+    rows = read("test7_aggressive/results.csv")
+    streams = ["long", "K1", "K5", "K25", "shuffled"]
+    fig, ax = plt.subplots(figsize=(7.0, 2.7))
+    x = np.arange(len(streams))
+    for key, label, color, ls in (("full_1e-4", "all parameters, lr 1e-4", BLUE, "-"),
+                                  ("mlp4_3e-3", "MLP 4, lr 3e-3", AQUA, "-"), ("mlp4_1e-2", "MLP 4, lr 1e-2", ORANGE, "-"),
+                                  ("fast4_d0.99", "MLP 4, lr 1e-2, decay 0.99", ORANGE, "--"),
+                                  ("fast4_d0.9", "MLP 4, lr 1e-2, decay 0.9", ORANGE, ":")):
+        g = [float(next(r["gain"] for r in rows if r["setting"] == key and r["stream"] == s)) for s in streams]
+        ax.plot(x, g, color=color, ls=ls, lw=1.6, marker="o", ms=3, label=label)
+    pick8 = json.loads(open(os.path.join(EXP, "test8_dual", "runtime.txt")).readline())["pick_val_K1"]
+    r8 = {r["stream"]: float(r["gain_frozen"]) for r in read("test8_dual/results.csv")
+          if r["phase"] == "test" and r["config"] == pick8}
+    idx = [streams.index(s) for s in ("long", "K1", "shuffled")]
+    ax.plot(idx, [r8[s] for s in ("long", "K1", "shuffled")], color=INK, lw=0, marker="D", ms=4,
+            label="all parameters + fast part on MLP 4 (test 8)")
+    zero(ax)
+    ax.set_xticks(x, ["long\n(5 x 100k)", "K = 1", "K = 5", "K = 25", "shuffled"])
+    ax.set_xlabel("stream, from strongest to weakest locality")
+    ax.set_ylabel("gain over frozen 14M (nats/token)")
+    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), fontsize=7)
+    fig.tight_layout()
+    fig.savefig(os.path.join(FIG, "locality_levels.pdf"))
+
+
+def very_long():
+    """Test 10 part C: loss by position in 200k-token books, mean of 4 books, +- 1 SE over books."""
+    pos = read("test10_followups/partC_position.csv")
+    dual_key = next(k for k in pos[0] if k.startswith("14m dual") and not k.endswith(" se"))
+    xs = np.arange(len(pos)) * 10 + 5
+    fig, ax = plt.subplots(figsize=(7.0, 2.8))
+    for key, label, color, ls, band in (("frozen14m", "frozen 14M", INK, "-", False),
+                                        ("14m full_1e-4", "14M online, lr 1e-4", BLUE, "-", True),
+                                        (dual_key, "14M online + fast part (MLP 2)", ORANGE, "-", True),
+                                        ("frozen31m", "frozen 31M", INK, "--", False),
+                                        ("31m online lr3e-4", "31M online, lr 3e-4", AQUA, "-", True),
+                                        ("frozen70m", "frozen 70M", INK, ":", False)):
+        y = np.array([float(r[key]) for r in pos])
+        if band:
+            se = np.array([float(r[key + " se"]) for r in pos])
+            ax.fill_between(xs, y - se, y + se, color=color, alpha=0.13, lw=0)
+        ax.plot(xs, y, color=color, ls=ls, lw=1.4, marker="o" if band else None, ms=2.5, label=label)
+    ax.set_xlim(0, len(pos) * 10)
+    ax.set_xlabel("position in the book (thousands of tokens)")
+    ax.set_ylabel("loss (nats/token)")
+    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), fontsize=7)
+    fig.tight_layout()
+    fig.savefig(os.path.join(FIG, "very_long.pdf"))
+
+
 if __name__ == "__main__":
     os.makedirs(FIG, exist_ok=True)
     distance_and_position()
     eviction()
     layers_and_size()
+    locality_levels()
+    very_long()

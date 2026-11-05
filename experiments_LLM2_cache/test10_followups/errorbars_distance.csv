@@ -1,0 +1,309 @@
+test,comparison,bin,tokens,books,token_mean,se,under_2se
+1-6,online - frozen,all tokens,498046,25,0.0993,0.0056,False
+1-6,online - frozen,same chunk,9881,25,-0.1075,0.0136,False
+1-6,online - frozen,"earlier chunk, < 1k",17054,25,0.3009,0.0110,False
+1-6,online - frozen,"earlier chunk, < 1k, same book",16988,25,0.3017,0.0110,False
+1-6,online - frozen,"earlier chunk, < 1k, earlier book",66,0,0.0921,nan,False
+1-6,online - frozen,"earlier chunk, 1k-10k",34076,25,0.1433,0.0085,False
+1-6,online - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.1548,0.0092,False
+1-6,online - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,0.0653,0.0093,False
+1-6,online - frozen,"earlier chunk, 10k-100k",44133,25,0.0097,0.0063,True
+1-6,online - frozen,"earlier chunk, 10k-100k, same book",4814,25,0.0649,0.0123,False
+1-6,online - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,0.0030,0.0062,True
+1-6,online - frozen,"earlier chunk, >= 100k",13178,19,-0.0346,0.0091,False
+1-6,online - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.0346,0.0091,False
+1-6,online - frozen,never seen,20959,25,-0.0617,0.0130,False
+1-6,shuffled - frozen,all tokens,498046,25,0.0608,0.0025,False
+1-6,shuffled - frozen,same chunk,9881,25,-0.1380,0.0093,False
+1-6,shuffled - frozen,"earlier chunk, < 1k",17054,25,0.0541,0.0080,False
+1-6,shuffled - frozen,"earlier chunk, < 1k, same book",16988,25,0.0541,0.0079,False
+1-6,shuffled - frozen,"earlier chunk, < 1k, earlier book",66,0,0.0473,nan,False
+1-6,shuffled - frozen,"earlier chunk, 1k-10k",34076,25,0.0382,0.0050,False
+1-6,shuffled - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.0379,0.0054,False
+1-6,shuffled - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,0.0400,0.0078,False
+1-6,shuffled - frozen,"earlier chunk, 10k-100k",44133,25,0.0234,0.0044,False
+1-6,shuffled - frozen,"earlier chunk, 10k-100k, same book",4814,25,0.0269,0.0067,False
+1-6,shuffled - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,0.0229,0.0045,False
+1-6,shuffled - frozen,"earlier chunk, >= 100k",13178,19,-0.0176,0.0077,False
+1-6,shuffled - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.0176,0.0077,False
+1-6,shuffled - frozen,never seen,20959,25,-0.0546,0.0107,False
+1-6,mlp - frozen,all tokens,498046,25,0.0846,0.0046,False
+1-6,mlp - frozen,same chunk,9881,25,-0.0863,0.0109,False
+1-6,mlp - frozen,"earlier chunk, < 1k",17054,25,0.2161,0.0090,False
+1-6,mlp - frozen,"earlier chunk, < 1k, same book",16988,25,0.2164,0.0090,False
+1-6,mlp - frozen,"earlier chunk, < 1k, earlier book",66,0,0.1211,nan,False
+1-6,mlp - frozen,"earlier chunk, 1k-10k",34076,25,0.1232,0.0074,False
+1-6,mlp - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.1302,0.0079,False
+1-6,mlp - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,0.0762,0.0080,False
+1-6,mlp - frozen,"earlier chunk, 10k-100k",44133,25,0.0134,0.0054,False
+1-6,mlp - frozen,"earlier chunk, 10k-100k, same book",4814,25,0.0634,0.0110,False
+1-6,mlp - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,0.0073,0.0052,True
+1-6,mlp - frozen,"earlier chunk, >= 100k",13178,19,-0.0345,0.0084,False
+1-6,mlp - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.0345,0.0084,False
+1-6,mlp - frozen,never seen,20959,25,-0.0553,0.0113,False
+1-6,attention - frozen,all tokens,498046,25,0.0607,0.0038,False
+1-6,attention - frozen,same chunk,9881,25,-0.1176,0.0111,False
+1-6,attention - frozen,"earlier chunk, < 1k",17054,25,0.1420,0.0083,False
+1-6,attention - frozen,"earlier chunk, < 1k, same book",16988,25,0.1423,0.0083,False
+1-6,attention - frozen,"earlier chunk, < 1k, earlier book",66,0,0.0628,nan,False
+1-6,attention - frozen,"earlier chunk, 1k-10k",34076,25,0.0919,0.0070,False
+1-6,attention - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.0950,0.0074,False
+1-6,attention - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,0.0703,0.0087,False
+1-6,attention - frozen,"earlier chunk, 10k-100k",44133,25,0.0025,0.0053,True
+1-6,attention - frozen,"earlier chunk, 10k-100k, same book",4814,25,0.0413,0.0109,False
+1-6,attention - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0023,0.0049,True
+1-6,attention - frozen,"earlier chunk, >= 100k",13178,19,-0.0299,0.0080,False
+1-6,attention - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.0299,0.0080,False
+1-6,attention - frozen,never seen,20959,25,-0.0546,0.0105,False
+1-6,online_cache - frozen,all tokens,498046,25,0.1018,0.0073,False
+1-6,online_cache - frozen,same chunk,9881,25,-0.0250,0.0204,True
+1-6,online_cache - frozen,"earlier chunk, < 1k",17054,25,0.6734,0.0242,False
+1-6,online_cache - frozen,"earlier chunk, < 1k, same book",16988,25,0.6749,0.0242,False
+1-6,online_cache - frozen,"earlier chunk, < 1k, earlier book",66,0,0.2765,nan,False
+1-6,online_cache - frozen,"earlier chunk, 1k-10k",34076,25,0.1849,0.0122,False
+1-6,online_cache - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.2054,0.0131,False
+1-6,online_cache - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,0.0470,0.0113,False
+1-6,online_cache - frozen,"earlier chunk, 10k-100k",44133,25,-0.0414,0.0063,False
+1-6,online_cache - frozen,"earlier chunk, 10k-100k, same book",4814,25,0.0148,0.0123,True
+1-6,online_cache - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0483,0.0062,False
+1-6,online_cache - frozen,"earlier chunk, >= 100k",13178,19,-0.0858,0.0091,False
+1-6,online_cache - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.0858,0.0091,False
+1-6,online_cache - frozen,never seen,20959,25,-0.1127,0.0130,False
+1-6,unigram - frozen,all tokens,498046,25,0.0173,0.0034,False
+1-6,unigram - frozen,same chunk,9881,25,0.0886,0.0173,False
+1-6,unigram - frozen,"earlier chunk, < 1k",17054,25,0.4624,0.0247,False
+1-6,unigram - frozen,"earlier chunk, < 1k, same book",16988,25,0.4634,0.0246,False
+1-6,unigram - frozen,"earlier chunk, < 1k, earlier book",66,0,0.2205,nan,False
+1-6,unigram - frozen,"earlier chunk, 1k-10k",34076,25,0.0583,0.0076,False
+1-6,unigram - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.0693,0.0086,False
+1-6,unigram - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,-0.0157,0.0045,False
+1-6,unigram - frozen,"earlier chunk, 10k-100k",44133,25,-0.0511,0.0000,False
+1-6,unigram - frozen,"earlier chunk, 10k-100k, same book",4814,25,-0.0502,0.0003,False
+1-6,unigram - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0512,0.0000,False
+1-6,unigram - frozen,"earlier chunk, >= 100k",13178,19,-0.0513,0.0000,False
+1-6,unigram - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.0513,0.0000,False
+1-6,unigram - frozen,never seen,20959,25,-0.0510,0.0001,False
+1-6,output_lr1e-3 - frozen,all tokens,498046,25,0.0450,0.0031,False
+1-6,output_lr1e-3 - frozen,same chunk,9881,25,0.0106,0.0057,True
+1-6,output_lr1e-3 - frozen,"earlier chunk, < 1k",17054,25,0.0615,0.0062,False
+1-6,output_lr1e-3 - frozen,"earlier chunk, < 1k, same book",16988,25,0.0619,0.0062,False
+1-6,output_lr1e-3 - frozen,"earlier chunk, < 1k, earlier book",66,0,-0.0163,nan,False
+1-6,output_lr1e-3 - frozen,"earlier chunk, 1k-10k",34076,25,-0.0006,0.0039,True
+1-6,output_lr1e-3 - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.0017,0.0040,True
+1-6,output_lr1e-3 - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,-0.0165,0.0041,False
+1-6,output_lr1e-3 - frozen,"earlier chunk, 10k-100k",44133,25,-0.0389,0.0031,False
+1-6,output_lr1e-3 - frozen,"earlier chunk, 10k-100k, same book",4814,25,-0.0311,0.0046,False
+1-6,output_lr1e-3 - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0399,0.0030,False
+1-6,output_lr1e-3 - frozen,"earlier chunk, >= 100k",13178,19,-0.0748,0.0031,False
+1-6,output_lr1e-3 - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.0748,0.0031,False
+1-6,output_lr1e-3 - frozen,never seen,20959,25,-0.0644,0.0061,False
+1-6,no_output - frozen,all tokens,498046,25,0.0939,0.0053,False
+1-6,no_output - frozen,same chunk,9881,25,-0.1053,0.0142,False
+1-6,no_output - frozen,"earlier chunk, < 1k",17054,25,0.2896,0.0106,False
+1-6,no_output - frozen,"earlier chunk, < 1k, same book",16988,25,0.2904,0.0105,False
+1-6,no_output - frozen,"earlier chunk, < 1k, earlier book",66,0,0.0830,nan,False
+1-6,no_output - frozen,"earlier chunk, 1k-10k",34076,25,0.1387,0.0085,False
+1-6,no_output - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.1500,0.0092,False
+1-6,no_output - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,0.0625,0.0095,False
+1-6,no_output - frozen,"earlier chunk, 10k-100k",44133,25,0.0088,0.0062,True
+1-6,no_output - frozen,"earlier chunk, 10k-100k, same book",4814,25,0.0575,0.0126,False
+1-6,no_output - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,0.0029,0.0060,True
+1-6,no_output - frozen,"earlier chunk, >= 100k",13178,19,-0.0335,0.0090,False
+1-6,no_output - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.0335,0.0090,False
+1-6,no_output - frozen,never seen,20959,25,-0.0579,0.0122,False
+1-6,output_lr3e-3 - frozen,all tokens,498046,25,0.0719,0.0055,False
+1-6,output_lr3e-3 - frozen,same chunk,9881,25,0.0924,0.0137,False
+1-6,output_lr3e-3 - frozen,"earlier chunk, < 1k",17054,25,0.2511,0.0163,False
+1-6,output_lr3e-3 - frozen,"earlier chunk, < 1k, same book",16988,25,0.2519,0.0164,False
+1-6,output_lr3e-3 - frozen,"earlier chunk, < 1k, earlier book",66,0,0.0262,nan,False
+1-6,output_lr3e-3 - frozen,"earlier chunk, 1k-10k",34076,25,0.0655,0.0053,False
+1-6,output_lr3e-3 - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.0723,0.0058,False
+1-6,output_lr3e-3 - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,0.0202,0.0065,False
+1-6,output_lr3e-3 - frozen,"earlier chunk, 10k-100k",44133,25,-0.0542,0.0049,False
+1-6,output_lr3e-3 - frozen,"earlier chunk, 10k-100k, same book",4814,25,-0.0275,0.0072,False
+1-6,output_lr3e-3 - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0574,0.0047,False
+1-6,output_lr3e-3 - frozen,"earlier chunk, >= 100k",13178,19,-0.1462,0.0041,False
+1-6,output_lr3e-3 - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.1462,0.0041,False
+1-6,output_lr3e-3 - frozen,never seen,20959,25,-0.1435,0.0123,False
+1-6,mlp_l1 - frozen,all tokens,498046,25,0.0518,0.0043,False
+1-6,mlp_l1 - frozen,same chunk,9881,25,-0.0787,0.0129,False
+1-6,mlp_l1 - frozen,"earlier chunk, < 1k",17054,25,0.2293,0.0120,False
+1-6,mlp_l1 - frozen,"earlier chunk, < 1k, same book",16988,25,0.2307,0.0120,False
+1-6,mlp_l1 - frozen,"earlier chunk, < 1k, earlier book",66,0,-0.1241,nan,False
+1-6,mlp_l1 - frozen,"earlier chunk, 1k-10k",34076,25,0.1027,0.0072,False
+1-6,mlp_l1 - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.1145,0.0076,False
+1-6,mlp_l1 - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,0.0230,0.0098,False
+1-6,mlp_l1 - frozen,"earlier chunk, 10k-100k",44133,25,-0.0069,0.0053,True
+1-6,mlp_l1 - frozen,"earlier chunk, 10k-100k, same book",4814,25,0.0486,0.0090,False
+1-6,mlp_l1 - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0137,0.0050,False
+1-6,mlp_l1 - frozen,"earlier chunk, >= 100k",13178,19,-0.0557,0.0106,False
+1-6,mlp_l1 - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.0557,0.0106,False
+1-6,mlp_l1 - frozen,never seen,20959,25,-0.0536,0.0108,False
+1-6,mlp_l2 - frozen,all tokens,498046,25,0.0551,0.0068,False
+1-6,mlp_l2 - frozen,same chunk,9881,25,-0.1373,0.0169,False
+1-6,mlp_l2 - frozen,"earlier chunk, < 1k",17054,25,0.3948,0.0185,False
+1-6,mlp_l2 - frozen,"earlier chunk, < 1k, same book",16988,25,0.3964,0.0186,False
+1-6,mlp_l2 - frozen,"earlier chunk, < 1k, earlier book",66,0,-0.0310,nan,False
+1-6,mlp_l2 - frozen,"earlier chunk, 1k-10k",34076,25,0.1114,0.0118,False
+1-6,mlp_l2 - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.1329,0.0123,False
+1-6,mlp_l2 - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,-0.0338,0.0141,False
+1-6,mlp_l2 - frozen,"earlier chunk, 10k-100k",44133,25,-0.0672,0.0063,False
+1-6,mlp_l2 - frozen,"earlier chunk, 10k-100k, same book",4814,25,0.0023,0.0152,True
+1-6,mlp_l2 - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0757,0.0061,False
+1-6,mlp_l2 - frozen,"earlier chunk, >= 100k",13178,19,-0.1271,0.0108,False
+1-6,mlp_l2 - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.1271,0.0108,False
+1-6,mlp_l2 - frozen,never seen,20959,25,-0.1288,0.0150,False
+1-6,mlp_l3 - frozen,all tokens,498046,25,0.0549,0.0038,False
+1-6,mlp_l3 - frozen,same chunk,9881,25,-0.0884,0.0128,False
+1-6,mlp_l3 - frozen,"earlier chunk, < 1k",17054,25,0.2020,0.0086,False
+1-6,mlp_l3 - frozen,"earlier chunk, < 1k, same book",16988,25,0.2020,0.0087,False
+1-6,mlp_l3 - frozen,"earlier chunk, < 1k, earlier book",66,0,0.2019,nan,False
+1-6,mlp_l3 - frozen,"earlier chunk, 1k-10k",34076,25,0.0851,0.0069,False
+1-6,mlp_l3 - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.0932,0.0072,False
+1-6,mlp_l3 - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,0.0301,0.0097,False
+1-6,mlp_l3 - frozen,"earlier chunk, 10k-100k",44133,25,-0.0098,0.0048,False
+1-6,mlp_l3 - frozen,"earlier chunk, 10k-100k, same book",4814,25,0.0259,0.0102,False
+1-6,mlp_l3 - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0142,0.0047,False
+1-6,mlp_l3 - frozen,"earlier chunk, >= 100k",13178,19,-0.0444,0.0084,False
+1-6,mlp_l3 - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.0444,0.0084,False
+1-6,mlp_l3 - frozen,never seen,20959,25,-0.0582,0.0108,False
+1-6,mlp_l4 - frozen,all tokens,498046,25,0.0674,0.0062,False
+1-6,mlp_l4 - frozen,same chunk,9881,25,-0.0932,0.0118,False
+1-6,mlp_l4 - frozen,"earlier chunk, < 1k",17054,25,0.3567,0.0171,False
+1-6,mlp_l4 - frozen,"earlier chunk, < 1k, same book",16988,25,0.3574,0.0171,False
+1-6,mlp_l4 - frozen,"earlier chunk, < 1k, earlier book",66,0,0.1691,nan,False
+1-6,mlp_l4 - frozen,"earlier chunk, 1k-10k",34076,25,0.1171,0.0088,False
+1-6,mlp_l4 - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.1351,0.0098,False
+1-6,mlp_l4 - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,-0.0041,0.0117,True
+1-6,mlp_l4 - frozen,"earlier chunk, 10k-100k",44133,25,-0.0558,0.0074,False
+1-6,mlp_l4 - frozen,"earlier chunk, 10k-100k, same book",4814,25,0.0145,0.0119,True
+1-6,mlp_l4 - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0644,0.0076,False
+1-6,mlp_l4 - frozen,"earlier chunk, >= 100k",13178,19,-0.1122,0.0111,False
+1-6,mlp_l4 - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.1122,0.0111,False
+1-6,mlp_l4 - frozen,never seen,20959,25,-0.1164,0.0129,False
+1-6,mlp_l5 - frozen,all tokens,498046,25,0.0722,0.0059,False
+1-6,mlp_l5 - frozen,same chunk,9881,25,-0.0763,0.0115,False
+1-6,mlp_l5 - frozen,"earlier chunk, < 1k",17054,25,0.2852,0.0143,False
+1-6,mlp_l5 - frozen,"earlier chunk, < 1k, same book",16988,25,0.2858,0.0143,False
+1-6,mlp_l5 - frozen,"earlier chunk, < 1k, earlier book",66,0,0.1206,nan,False
+1-6,mlp_l5 - frozen,"earlier chunk, 1k-10k",34076,25,0.1090,0.0087,False
+1-6,mlp_l5 - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.1202,0.0098,False
+1-6,mlp_l5 - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,0.0332,0.0080,False
+1-6,mlp_l5 - frozen,"earlier chunk, 10k-100k",44133,25,-0.0354,0.0072,False
+1-6,mlp_l5 - frozen,"earlier chunk, 10k-100k, same book",4814,25,0.0277,0.0120,False
+1-6,mlp_l5 - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0431,0.0072,False
+1-6,mlp_l5 - frozen,"earlier chunk, >= 100k",13178,19,-0.0917,0.0095,False
+1-6,mlp_l5 - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.0917,0.0095,False
+1-6,mlp_l5 - frozen,never seen,20959,25,-0.0905,0.0150,False
+1-6,mlp_l6 - frozen,all tokens,498046,25,0.0472,0.0041,False
+1-6,mlp_l6 - frozen,same chunk,9881,25,-0.0533,0.0077,False
+1-6,mlp_l6 - frozen,"earlier chunk, < 1k",17054,25,0.1076,0.0073,False
+1-6,mlp_l6 - frozen,"earlier chunk, < 1k, same book",16988,25,0.1078,0.0074,False
+1-6,mlp_l6 - frozen,"earlier chunk, < 1k, earlier book",66,0,0.0527,nan,False
+1-6,mlp_l6 - frozen,"earlier chunk, 1k-10k",34076,25,0.0509,0.0062,False
+1-6,mlp_l6 - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.0524,0.0067,False
+1-6,mlp_l6 - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,0.0407,0.0082,False
+1-6,mlp_l6 - frozen,"earlier chunk, 10k-100k",44133,25,-0.0163,0.0051,False
+1-6,mlp_l6 - frozen,"earlier chunk, 10k-100k, same book",4814,25,0.0093,0.0079,True
+1-6,mlp_l6 - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0194,0.0050,False
+1-6,mlp_l6 - frozen,"earlier chunk, >= 100k",13178,19,-0.0850,0.0072,False
+1-6,mlp_l6 - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.0850,0.0072,False
+1-6,mlp_l6 - frozen,never seen,20959,25,-0.0843,0.0118,False
+1-6,mlp_last2 - frozen,all tokens,498046,25,0.0705,0.0056,False
+1-6,mlp_last2 - frozen,same chunk,9881,25,-0.0762,0.0103,False
+1-6,mlp_last2 - frozen,"earlier chunk, < 1k",17054,25,0.2246,0.0118,False
+1-6,mlp_last2 - frozen,"earlier chunk, < 1k, same book",16988,25,0.2249,0.0118,False
+1-6,mlp_last2 - frozen,"earlier chunk, < 1k, earlier book",66,0,0.1424,nan,False
+1-6,mlp_last2 - frozen,"earlier chunk, 1k-10k",34076,25,0.0973,0.0079,False
+1-6,mlp_last2 - frozen,"earlier chunk, 1k-10k, same book",29680,25,0.1043,0.0087,False
+1-6,mlp_last2 - frozen,"earlier chunk, 1k-10k, earlier book",4396,24,0.0496,0.0090,False
+1-6,mlp_last2 - frozen,"earlier chunk, 10k-100k",44133,25,-0.0235,0.0065,False
+1-6,mlp_last2 - frozen,"earlier chunk, 10k-100k, same book",4814,25,0.0292,0.0095,False
+1-6,mlp_last2 - frozen,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0299,0.0064,False
+1-6,mlp_last2 - frozen,"earlier chunk, >= 100k",13178,19,-0.0951,0.0089,False
+1-6,mlp_last2 - frozen,"earlier chunk, >= 100k, earlier book",13178,19,-0.0951,0.0089,False
+1-6,mlp_last2 - frozen,never seen,20959,25,-0.0952,0.0152,False
+1-6,locality 14M,all tokens,498046,25,0.0385,0.0041,False
+1-6,locality 14M,same chunk,9881,25,0.0305,0.0149,False
+1-6,locality 14M,"earlier chunk, < 1k",17054,25,0.2468,0.0111,False
+1-6,locality 14M,"earlier chunk, < 1k, same book",16988,25,0.2476,0.0110,False
+1-6,locality 14M,"earlier chunk, < 1k, earlier book",66,0,0.0448,nan,False
+1-6,locality 14M,"earlier chunk, 1k-10k",34076,25,0.1051,0.0062,False
+1-6,locality 14M,"earlier chunk, 1k-10k, same book",29680,25,0.1169,0.0068,False
+1-6,locality 14M,"earlier chunk, 1k-10k, earlier book",4396,24,0.0253,0.0092,False
+1-6,locality 14M,"earlier chunk, 10k-100k",44133,25,-0.0136,0.0059,False
+1-6,locality 14M,"earlier chunk, 10k-100k, same book",4814,25,0.0379,0.0104,False
+1-6,locality 14M,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0199,0.0060,False
+1-6,locality 14M,"earlier chunk, >= 100k",13178,19,-0.0169,0.0072,False
+1-6,locality 14M,"earlier chunk, >= 100k, earlier book",13178,19,-0.0169,0.0072,False
+1-6,locality 14M,never seen,20959,25,-0.0070,0.0094,True
+1-6,31M online - frozen 31M,all tokens,498046,25,0.0852,0.0055,False
+1-6,31M online - frozen 31M,same chunk,9881,25,-0.1017,0.0171,False
+1-6,31M online - frozen 31M,"earlier chunk, < 1k",17054,25,0.3735,0.0147,False
+1-6,31M online - frozen 31M,"earlier chunk, < 1k, same book",16988,25,0.3747,0.0147,False
+1-6,31M online - frozen 31M,"earlier chunk, < 1k, earlier book",66,0,0.0838,nan,False
+1-6,31M online - frozen 31M,"earlier chunk, 1k-10k",34076,25,0.1549,0.0087,False
+1-6,31M online - frozen 31M,"earlier chunk, 1k-10k, same book",29680,25,0.1705,0.0095,False
+1-6,31M online - frozen 31M,"earlier chunk, 1k-10k, earlier book",4396,24,0.0496,0.0091,False
+1-6,31M online - frozen 31M,"earlier chunk, 10k-100k",44133,25,-0.0101,0.0058,True
+1-6,31M online - frozen 31M,"earlier chunk, 10k-100k, same book",4814,25,0.0585,0.0129,False
+1-6,31M online - frozen 31M,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0185,0.0057,False
+1-6,31M online - frozen 31M,"earlier chunk, >= 100k",13178,19,-0.0345,0.0075,False
+1-6,31M online - frozen 31M,"earlier chunk, >= 100k, earlier book",13178,19,-0.0345,0.0075,False
+1-6,31M online - frozen 31M,never seen,20959,25,-0.0409,0.0122,False
+1-6,locality 31M,all tokens,498046,25,0.0388,0.0038,False
+1-6,locality 31M,same chunk,9881,25,-0.0123,0.0159,True
+1-6,locality 31M,"earlier chunk, < 1k",17054,25,0.2702,0.0092,False
+1-6,locality 31M,"earlier chunk, < 1k, same book",16988,25,0.2711,0.0091,False
+1-6,locality 31M,"earlier chunk, < 1k, earlier book",66,0,0.0302,nan,False
+1-6,locality 31M,"earlier chunk, 1k-10k",34076,25,0.1184,0.0057,False
+1-6,locality 31M,"earlier chunk, 1k-10k, same book",29680,25,0.1304,0.0059,False
+1-6,locality 31M,"earlier chunk, 1k-10k, earlier book",4396,24,0.0369,0.0095,False
+1-6,locality 31M,"earlier chunk, 10k-100k",44133,25,-0.0207,0.0058,False
+1-6,locality 31M,"earlier chunk, 10k-100k, same book",4814,25,0.0384,0.0119,False
+1-6,locality 31M,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0279,0.0053,False
+1-6,locality 31M,"earlier chunk, >= 100k",13178,19,-0.0253,0.0083,False
+1-6,locality 31M,"earlier chunk, >= 100k, earlier book",13178,19,-0.0253,0.0083,False
+1-6,locality 31M,never seen,20959,25,-0.0198,0.0094,False
+1-6,70M online - frozen 70M,all tokens,498046,25,0.0243,0.0018,False
+1-6,70M online - frozen 70M,same chunk,9881,25,-0.0394,0.0065,False
+1-6,70M online - frozen 70M,"earlier chunk, < 1k",17054,25,0.0478,0.0039,False
+1-6,70M online - frozen 70M,"earlier chunk, < 1k, same book",16988,25,0.0479,0.0039,False
+1-6,70M online - frozen 70M,"earlier chunk, < 1k, earlier book",66,0,0.0235,nan,False
+1-6,70M online - frozen 70M,"earlier chunk, 1k-10k",34076,25,0.0331,0.0039,False
+1-6,70M online - frozen 70M,"earlier chunk, 1k-10k, same book",29680,25,0.0341,0.0039,False
+1-6,70M online - frozen 70M,"earlier chunk, 1k-10k, earlier book",4396,24,0.0262,0.0050,False
+1-6,70M online - frozen 70M,"earlier chunk, 10k-100k",44133,25,0.0181,0.0031,False
+1-6,70M online - frozen 70M,"earlier chunk, 10k-100k, same book",4814,25,0.0194,0.0057,False
+1-6,70M online - frozen 70M,"earlier chunk, 10k-100k, earlier book",39319,24,0.0179,0.0021,False
+1-6,70M online - frozen 70M,"earlier chunk, >= 100k",13178,19,-0.0151,0.0039,False
+1-6,70M online - frozen 70M,"earlier chunk, >= 100k, earlier book",13178,19,-0.0151,0.0039,False
+1-6,70M online - frozen 70M,never seen,20959,25,-0.0374,0.0075,False
+1-6,locality 70M,all tokens,498046,25,0.0039,0.0015,False
+1-6,locality 70M,same chunk,9881,25,-0.0178,0.0048,False
+1-6,locality 70M,"earlier chunk, < 1k",17054,25,0.0158,0.0029,False
+1-6,locality 70M,"earlier chunk, < 1k, same book",16988,25,0.0159,0.0029,False
+1-6,locality 70M,"earlier chunk, < 1k, earlier book",66,0,0.0053,nan,False
+1-6,locality 70M,"earlier chunk, 1k-10k",34076,25,0.0094,0.0025,False
+1-6,locality 70M,"earlier chunk, 1k-10k, same book",29680,25,0.0096,0.0026,False
+1-6,locality 70M,"earlier chunk, 1k-10k, earlier book",4396,24,0.0082,0.0030,False
+1-6,locality 70M,"earlier chunk, 10k-100k",44133,25,0.0042,0.0022,True
+1-6,locality 70M,"earlier chunk, 10k-100k, same book",4814,25,0.0048,0.0048,True
+1-6,locality 70M,"earlier chunk, 10k-100k, earlier book",39319,24,0.0042,0.0020,False
+1-6,locality 70M,"earlier chunk, >= 100k",13178,19,-0.0119,0.0029,False
+1-6,locality 70M,"earlier chunk, >= 100k, earlier book",13178,19,-0.0119,0.0029,False
+1-6,locality 70M,never seen,20959,25,-0.0141,0.0038,False
+1-6,online_cache - online,all tokens,498046,25,0.0024,0.0023,True
+1-6,online_cache - online,same chunk,9881,25,0.0825,0.0161,False
+1-6,online_cache - online,"earlier chunk, < 1k",17054,25,0.3724,0.0206,False
+1-6,online_cache - online,"earlier chunk, < 1k, same book",16988,25,0.3732,0.0207,False
+1-6,online_cache - online,"earlier chunk, < 1k, earlier book",66,0,0.1843,nan,False
+1-6,online_cache - online,"earlier chunk, 1k-10k",34076,25,0.0417,0.0057,False
+1-6,online_cache - online,"earlier chunk, 1k-10k, same book",29680,25,0.0506,0.0064,False
+1-6,online_cache - online,"earlier chunk, 1k-10k, earlier book",4396,24,-0.0183,0.0043,False
+1-6,online_cache - online,"earlier chunk, 10k-100k",44133,25,-0.0511,0.0000,False
+1-6,online_cache - online,"earlier chunk, 10k-100k, same book",4814,25,-0.0501,0.0003,False
+1-6,online_cache - online,"earlier chunk, 10k-100k, earlier book",39319,24,-0.0512,0.0000,False
+1-6,online_cache - online,"earlier chunk, >= 100k",13178,19,-0.0513,0.0000,False
+1-6,online_cache - online,"earlier chunk, >= 100k, earlier book",13178,19,-0.0513,0.0000,False
+1-6,online_cache - online,never seen,20959,25,-0.0510,0.0001,False

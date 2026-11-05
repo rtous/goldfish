@@ -45,15 +45,18 @@ earlier-book part has 66 tokens and is skipped).
 
 | bin | previous occurrence | tokens | online, in order | online, shuffled | locality | MLP only, all layers | unigram cache |
 |---|---|---|---|---|---|---|---|
-| earlier chunk, < 1k | all | 17054 | +0.301 | +0.054 | +0.247 | +0.216 | +0.462 |
-| earlier chunk, < 1k | same book | 16988 | +0.302 | +0.054 | +0.248 | +0.216 | +0.463 |
-| earlier chunk, 1k-10k | all | 34076 | +0.143 | +0.038 | +0.105 | +0.123 | +0.058 |
-| earlier chunk, 1k-10k | same book | 29680 | +0.155 | +0.038 | +0.117 | +0.130 | +0.069 |
-| earlier chunk, 1k-10k | earlier book | 4396 | +0.065 | +0.040 | +0.025 | +0.076 | -0.016 |
-| earlier chunk, 10k-100k | all | 44133 | +0.010 | +0.023 | -0.014 | +0.013 | -0.051 |
-| earlier chunk, 10k-100k | same book | 4814 | +0.065 | +0.027 | +0.038 | +0.063 | -0.050 |
-| earlier chunk, 10k-100k | earlier book | 39319 | +0.003 | +0.023 | -0.020 | +0.007 | -0.051 |
-| earlier chunk, >= 100k | all | 13178 | -0.035 | -0.018 | -0.017 | -0.035 | -0.051 |
+| earlier chunk, < 1k | all | 17054 | +0.301 ± 0.011 | +0.054 ± 0.008 | +0.247 ± 0.011 | +0.216 ± 0.009 | +0.462 ± 0.025 |
+| earlier chunk, < 1k | same book | 16988 | +0.302 ± 0.011 | +0.054 ± 0.008 | +0.248 ± 0.011 | +0.216 ± 0.009 | +0.463 ± 0.025 |
+| earlier chunk, 1k-10k | all | 34076 | +0.143 ± 0.009 | +0.038 ± 0.005 | +0.105 ± 0.006 | +0.123 ± 0.007 | +0.058 ± 0.008 |
+| earlier chunk, 1k-10k | same book | 29680 | +0.155 ± 0.009 | +0.038 ± 0.005 | +0.117 ± 0.007 | +0.130 ± 0.008 | +0.069 ± 0.009 |
+| earlier chunk, 1k-10k | earlier book | 4396 | +0.065 ± 0.009 | +0.040 ± 0.008 | +0.025 ± 0.009 | +0.076 ± 0.008 | -0.016 ± 0.004 |
+| earlier chunk, 10k-100k | all | 44133 | +0.010 ± 0.006 * | +0.023 ± 0.004 | -0.014 ± 0.006 | +0.013 ± 0.005 | -0.051 ± 0.000 |
+| earlier chunk, 10k-100k | same book | 4814 | +0.065 ± 0.012 | +0.027 ± 0.007 | +0.038 ± 0.010 | +0.063 ± 0.011 | -0.050 ± 0.000 |
+| earlier chunk, 10k-100k | earlier book | 39319 | +0.003 ± 0.006 * | +0.023 ± 0.004 | -0.020 ± 0.006 | +0.007 ± 0.005 * | -0.051 ± 0.000 |
+| earlier chunk, >= 100k | all | 13178 | -0.035 ± 0.009 | -0.018 ± 0.008 | -0.017 ± 0.007 | -0.035 ± 0.008 | -0.051 ± 0.000 |
+| earlier chunk, >= 100k | earlier book | 13178 | -0.035 ± 0.009 | -0.018 ± 0.008 | -0.017 ± 0.007 | -0.035 ± 0.008 | -0.051 ± 0.000 |
+
+Gains in nats/token, token-level means ± SE over books (paired per-book differences; test 10 part A); * = under 2 SE.
 
 **Part B (superseded by test 6): Pythia-14M vs 70M at lr 3e-5**
 

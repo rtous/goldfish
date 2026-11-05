@@ -53,12 +53,15 @@ the listed layers only, 0-based)."""
     raise ValueError(params)
 
 
-def stream_losses(model, init, ids, lr, batch=16, params="all", order=None):
+def stream_losses(model, init, ids, lr, batch=16, params="all", order=None, decay=None):
     """Per-token loss (nats, float32) for the stream ids [n]; NaN for each chunk's first token (not
     scored). lr = 0: frozen (chunks scored in batches). params: which parameters the SGD step
     updates (trained_params). order: optional permutation of the chunks, the order in which the
-    online learner sees them (losses are still returned in stream order). The model is reset to the
-    state dict init first, and left in its final state."""
+    online learner sees them (losses are still returned in stream order). decay: if set, the
+    trained parameters are slow weights W (their init values, never changed) plus a fast part F
+    that starts at 0: the model predicts with W + F, and after each chunk F <- decay * F - lr * g,
+    with g the gradient at W + F (decay = 1 would be plain SGD). The model is reset to the state
+    dict init first, and left in its final state."""
     model.load_state_dict(init)
     dev = next(model.parameters()).device
     x = torch.from_numpy(np.asarray(ids, dtype=np.int64))
@@ -86,6 +89,9 @@ def stream_losses(model, init, ids, lr, batch=16, params="all", order=None):
     for p in model.parameters():  # frozen parameters get no gradient (and cost no backward pass)
         p.requires_grad_(id(p) in ids_train)
     opt = torch.optim.SGD(train, lr=lr, momentum=0, weight_decay=0)
+    if decay is not None:
+        names = {id(p): k for k, p in model.named_parameters()}
+        slow = [init[names[id(p)]].to(p.device) for p in train]
     if order is not None:
         starts = [starts[i] for i in order]
     for s in starts:
@@ -97,7 +103,12 @@ def stream_losses(model, init, ids, lr, batch=16, params="all", order=None):
         out[s + 1:e] = nll.detach().cpu().numpy()
         opt.zero_grad(set_to_none=True)
         nll.mean().backward()
-        opt.step()
+        if decay is None:
+            opt.step()
+        else:
+            with torch.no_grad():
+                for p, w in zip(train, slow):  # W + F with F <- decay * F - lr * g
+                    p.copy_(w + decay * (p - w) - lr * p.grad)
     for p in model.parameters():
         p.requires_grad_(True)
     return out

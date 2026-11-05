@@ -1,0 +1,13 @@
+\begin{tabular}{lrrrrr}
+\toprule
+bin (previous occurrence) & tokens & frozen loss & online, in order & online, shuffled & locality \\
+\midrule
+all tokens & 498046 & 4.3922 & $+0.099_{\pm .006}$ & $+0.061_{\pm .003}$ & $+0.038_{\pm .004}$ \\
+same chunk & 9881 & 5.0194 & $-0.107_{\pm .014}$ & $-0.138_{\pm .009}$ & $+0.030_{\pm .015}$ \\
+earlier, $<$ 1k & 17054 & 7.3382 & $+0.301_{\pm .011}$ & $+0.054_{\pm .008}$ & $+0.247_{\pm .011}$ \\
+earlier, 1k--10k & 34076 & 7.0001 & $+0.143_{\pm .009}$ & $+0.038_{\pm .005}$ & $+0.105_{\pm .006}$ \\
+earlier, 10k--100k & 44133 & 7.1181 & $+0.010_{\pm .006}^{\dagger}$ & $+0.023_{\pm .004}$ & $-0.014_{\pm .006}$ \\
+earlier, $\geq$ 100k & 13178 & 7.8193 & $-0.035_{\pm .009}$ & $-0.018_{\pm .008}$ & $-0.017_{\pm .007}$ \\
+never seen & 20959 & 8.1856 & $-0.062_{\pm .013}$ & $-0.055_{\pm .011}$ & $-0.007_{\pm .009}^{\dagger}$ \\
+\bottomrule
+\end{tabular}

@@ -1,0 +1,10 @@
+\begin{tabular}{lrrrrr}
+\toprule
+run & $K=1$ & shuffled & long & locality & $K=1$: same book $<$10k \\
+\midrule
+all parameters, lr $10^{-4}$ (gain over frozen) & $+0.100_{\pm .006}$ & $+0.062_{\pm .003}$ & $+0.176_{\pm .023}$ & $+0.038_{\pm .004}$ & $+0.210_{\pm .009}$ \\
++ fast part, MLP 4 (test 8) & $+0.012_{\pm .001}$ & $-0.008_{\pm .000}$ & $+0.021_{\pm .003}$ & $+0.058_{\pm .005}$ & $+0.058_{\pm .004}$ \\
++ fast part, MLP 2 (test 10) & $+0.013_{\pm .002}$ & $-0.009_{\pm .000}$ & $+0.022_{\pm .003}$ &  &  \\
+Meta-SGD lite (test 9) & $+0.012_{\pm .002}$ & $-0.020_{\pm .001}$ & $+0.020_{\pm .004}$ & $+0.070_{\pm .005}$ & $+0.079_{\pm .005}$ \\
+\bottomrule
+\end{tabular}

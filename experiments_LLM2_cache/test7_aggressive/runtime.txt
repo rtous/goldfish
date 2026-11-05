@@ -1,0 +1,2 @@
+cpu; settings ['full_1e-4', 'mlp4_3e-3', 'mlp4_1e-2', 'fast4_d0.99', 'fast4_d0.9']
+frozen14m_books25 81 s, frozen14m_long 82 s, frozen31m_books25 91 s, frozen31m_long 90 s, frozen70m_books25 114 s, frozen70m_long 121 s

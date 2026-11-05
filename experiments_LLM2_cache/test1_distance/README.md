@@ -30,15 +30,17 @@ scored tokens remain), since they are always "recent". The "all tokens" row has 
 
 `results.csv`; per-token losses in `losses.npz`. Loss in nats/token; gain = frozen - online.
 
-| bin | tokens | frozen | online | gain |
+| bin | tokens | frozen | online | gain (± SE over books) |
 |---|---|---|---|---|
-| all tokens | 498046 | 4.3922 | 4.2929 | +0.099 |
-| same chunk | 9881 | 5.0194 | 5.1269 | -0.107 |
-| earlier chunk, < 1k | 17054 | 7.3382 | 7.0373 | +0.301 |
-| earlier chunk, 1k-10k | 34076 | 7.0001 | 6.8568 | +0.143 |
-| earlier chunk, 10k-100k | 44133 | 7.1181 | 7.1083 | +0.010 |
-| earlier chunk, >= 100k | 13178 | 7.8193 | 7.8539 | -0.035 |
-| never seen | 20959 | 8.1856 | 8.2472 | -0.062 |
+| all tokens | 498046 | 4.3922 | 4.2929 | +0.099 ± 0.006 |
+| same chunk | 9881 | 5.0194 | 5.1269 | -0.107 ± 0.014 |
+| earlier chunk, < 1k | 17054 | 7.3382 | 7.0373 | +0.301 ± 0.011 |
+| earlier chunk, 1k-10k | 34076 | 7.0001 | 6.8568 | +0.143 ± 0.009 |
+| earlier chunk, 10k-100k | 44133 | 7.1181 | 7.1083 | +0.010 ± 0.006 * |
+| earlier chunk, >= 100k | 13178 | 7.8193 | 7.8539 | -0.035 ± 0.009 |
+| never seen | 20959 | 8.1856 | 8.2472 | -0.062 ± 0.013 |
+
+Gains in nats/token, token-level means ± SE over books (paired per-book differences; test 10 part A); * = under 2 SE.
 
 ![gain against distance](plots/gain_vs_distance.png)
 

@@ -1,0 +1,1 @@
+cpu; 20 A books; dual 3373 s

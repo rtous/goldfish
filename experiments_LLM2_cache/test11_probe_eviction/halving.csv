@@ -1,0 +1,10 @@
+setting,quantity,at_I0,halves_at_tokens,at_300k,at_300k_se
+full_1e-4,memory_A,0.0969,6115,0.0164,0.0078
+full_1e-4,memory_rare_in_first_half,0.2229,2948,0.0272,0.0265
+full_1e-4,gain_A2,0.0673,5304,-0.0004,0.0064
+mlp4_3e-3,memory_A,0.1180,15162,0.0079,0.0062
+mlp4_3e-3,memory_rare_in_first_half,0.2905,5889,0.0146,0.0209
+mlp4_3e-3,gain_A2,0.0577,3415,-0.0529,0.0064
+dual,memory_A,0.1201,7984,0.0141,0.0083
+dual,memory_rare_in_first_half,0.2799,3578,0.0269,0.0282
+dual,gain_A2,0.0750,4410,-0.0163,0.0069

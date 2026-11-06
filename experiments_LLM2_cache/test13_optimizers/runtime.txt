@@ -1,0 +1,15 @@
+{"size": "14m", "rule": "adam", "stream": "K1", "lr": 3e-06, "seconds": 394, "device": "cpu", "params": 14067712}
+{"size": "14m", "rule": "adam", "stream": "shuffled", "lr": 3e-06, "seconds": 265, "device": "cpu", "params": 14067712}
+{"size": "14m", "rule": "nsgd", "stream": "K1", "lr": 0.0001, "seconds": 249, "device": "cpu", "params": 14067712}
+{"size": "14m", "rule": "nsgd", "stream": "shuffled", "lr": 0.0001, "seconds": 250, "device": "cpu", "params": 14067712}
+{"size": "31m", "rule": "adam", "stream": "K1", "lr": 3e-06, "seconds": 626, "device": "cpu", "params": 30494720}
+{"size": "31m", "rule": "adam", "stream": "shuffled", "lr": 3e-06, "seconds": 570, "device": "cpu", "params": 30494720}
+{"size": "31m", "rule": "nsgd", "stream": "K1", "lr": 0.0001, "seconds": 546, "device": "cpu", "params": 30494720}
+{"size": "31m", "rule": "nsgd", "stream": "shuffled", "lr": 0.0001, "seconds": 544, "device": "cpu", "params": 30494720}
+{"size": "70m", "rule": "adam", "stream": "K1", "lr": 3e-07, "seconds": 1052, "device": "cpu", "params": 70426624}
+{"size": "70m", "rule": "adam", "stream": "shuffled", "lr": 3e-07, "seconds": 986, "device": "cpu", "params": 70426624}
+{"size": "70m", "rule": "nsgd", "stream": "K1", "lr": 3e-06, "seconds": 833, "device": "cpu", "params": 70426624}
+{"size": "70m", "rule": "nsgd", "stream": "shuffled", "lr": 3e-06, "seconds": 921, "device": "cpu", "params": 70426624}
+{"size": "70m", "rule": "sgd", "stream": "K1", "lr": 1e-05, "seconds": 780, "device": "cpu", "params": 70426624}
+{"size": "70m", "rule": "sgd", "stream": "shuffled", "lr": 1e-05, "seconds": 849, "device": "cpu", "params": 70426624}
+picks: seconds per pick run in picks.csv; diagnostics: about 2 min

@@ -9,6 +9,7 @@ import json
 import os
 
 import matplotlib
+import matplotlib.ticker
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
@@ -73,24 +74,66 @@ def distance_and_position():
 
 
 def eviction():
-    """Test 2 and test 3: memory of A against the interlude, mean of the 3 A books."""
-    rows = read("test3_baselines/eviction.csv")
-    interludes = [0, 10000, 100000]
-    fig, ax = plt.subplots(figsize=(3.4, 2.4))
-    x = np.arange(len(interludes))
-    for key, label, color in (("online", "online, all parameters", BLUE), ("no_output", "online, all but output", AQUA),
-                              ("output", "online, output only (lr 1e-3)", ORANGE), ("unigram", "unigram cache", INK)):
-        m = [np.mean([float(r["memory"]) for r in rows if r["method"] == key and int(r["I"]) == i])
-             for i in interludes]
-        ax.plot(x, m, color=color, lw=1.6, marker="o", ms=3, label=label)
-    zero(ax)
-    ax.set_xticks(x, ["0", "10k", "100k"])
-    ax.set_xlabel("interlude between A1 and A2 (tokens)")
-    ax.set_ylabel("memory of A (nats/token)")
-    ax.set_ylim(top=0.056)
-    ax.legend(loc="upper right")
+    """Test 11: memory of A (gain on A2 - gain on a never-read control book's C2, same snapshot) and gain on
+    A2 against the interlude, mean of 20 books, +- 1 SE."""
+    rows = read("test11_probe_eviction/means.csv")
+    fig, (a, b) = plt.subplots(1, 2, figsize=(7.0, 2.5))
+    for setting, label, color in (("full_1e-4", "all, lr 1e-4", BLUE), ("mlp4_3e-3", "MLP 4, lr 3e-3", ORANGE),
+                                  ("dual", "slow + fast (MLP 2)", AQUA)):
+        r = [x for x in rows if x["setting"] == setting and x["I"] != "pre"]
+        I = np.array([int(x["I"]) for x in r], dtype=float)
+        xs = np.where(I == 0, 300, I)
+        for ax, key in ((a, "memory_A"), (b, "gain_A2")):
+            y, s_ = np.array([float(x[key]) for x in r]), np.array([float(x[key + "_se"]) for x in r])
+            ax.fill_between(xs, y - s_, y + s_, color=color, alpha=0.15, lw=0)
+            ax.plot(xs, y, color=color, lw=1.6, marker="o", ms=3, label=label)
+        if setting == "full_1e-4":
+            b.plot(xs, [float(x["gain_C2"]) for x in r], color=color, lw=1.2, ls="--", label="all, lr 1e-4: control C2")
+    for ax, title in ((a, "(a) memory of A = gain on A2 $-$ gain on C2"), (b, "(b) gain on A2 over the pretrained model")):
+        zero(ax)
+        ax.set_xscale("log")
+        ax.set_xticks([300, 1024, 3072, 9984, 29952, 100096, 300032], ["0", "1k", "3k", "10k", "30k", "100k", "300k"])
+        ax.minorticks_off()
+        ax.set_xlabel("interlude after A1 (tokens of other books)")
+        ax.set_title(title, fontsize=8, loc="left")
+    a.set_ylabel("nats/token")
+    a.legend(loc="upper right")
+    b.legend(loc="lower left", fontsize=6.5)
     fig.tight_layout()
     fig.savefig(os.path.join(FIG, "eviction.pdf"))
+
+
+def rules_size():
+    """Test 13: locality within 1k tokens and gain / WikiText forgetting against size, per update rule."""
+    rows = read("test13_optimizers/results.csv")
+    ex = read("test13_optimizers/exchange.csv")
+    params = {"14m": 14.07, "31m": 30.49, "70m": 70.43}
+    fig, (a, b) = plt.subplots(1, 2, figsize=(7.0, 2.5))
+    for rule, label, color in (("sgd", "plain SGD", INK), ("adam", "Adam", BLUE), ("nsgd", "normalized SGD", ORANGE)):
+        r = [x for x in rows if x["rule"] == rule and x["bin"] == "earlier chunk < 1k"]
+        x = [params[v["size"]] for v in r]
+        y, s_ = np.array([float(v["locality"]) for v in r]), np.array([float(v["locality_se"]) for v in r])
+        a.fill_between(x, y - s_, y + s_, color=color, alpha=0.15, lw=0)
+        a.plot(x, y, color=color, lw=1.6, marker="o", ms=3, label=label)
+        e = [v for v in ex if v["rule"] == rule]
+        b.plot([params[v["size"]] for v in e], [float(v["exchange_rate_K1"]) for v in e], color=color, lw=1.6,
+               marker="o", ms=3, label=label)
+    zero(a)
+    for ax in (a, b):
+        ax.set_xscale("log")
+        ax.set_xticks(list(params.values()), ["14M", "31M", "70M"])
+        ax.minorticks_off()
+        ax.set_xlabel("model size (parameters)")
+    a.set_ylabel("locality, earlier chunk $<$ 1k")
+    a.set_title("(a) locality within 1k tokens ($\\pm$ 1 SE)", fontsize=8, loc="left")
+    b.set_yscale("log")
+    b.set_yticks([0.2, 0.5, 1, 2], ["0.2", "0.5", "1", "2"])
+    b.yaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+    b.set_ylabel("stream gain / WikiText forgetting")
+    b.set_title("(b) exchange rate, books in order", fontsize=8, loc="left")
+    a.legend(loc="lower left")
+    fig.tight_layout()
+    fig.savefig(os.path.join(FIG, "rules_size.pdf"))
 
 
 def layers_and_size():
@@ -194,6 +237,7 @@ if __name__ == "__main__":
     os.makedirs(FIG, exist_ok=True)
     distance_and_position()
     eviction()
+    rules_size()
     layers_and_size()
     locality_levels()
     very_long()

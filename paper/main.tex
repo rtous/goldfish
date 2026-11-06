@@ -29,10 +29,12 @@ We ask whether a small language model that keeps learning online, one SGD step o
 Pythia-14M reads PG-19 books in independent chunks of 256 tokens.
 Online learning lowers its loss by $0.099 \pm 0.006$ nats/token, and by $0.301$ for rare tokens last seen in an earlier chunk under 1k tokens back.
 This long-range gain is local (only 18\% of it survives shuffling the chunks), tied mostly to the current book rather than to the recency of single tokens, more than a count cache beyond 1k tokens, and stored in the MLPs below the output layer.
+Probing frozen snapshots of the learner shows that the memory of a book is evicted quickly (its gain on the book's second half halves within about 5k tokens of other books) and that general knowledge is kept within the domain but not outside it: on unseen PG-19 books the learner loses nothing, on WikiText it loses $0.196 \pm 0.006$ nats/token, about twice its gain on the stream.
 Making the cache more aggressive (higher learning rates, a single layer, decay) gains more on recent material but loses much more on everything else, at every level of locality we tested.
 A small decaying fast part on one middle MLP, added on top of the slow learner, gives a small but robust extra gain with strong locality ($+0.012 \pm 0.001$ on books read in order, $+0.021 \pm 0.003$ on long books) and costs little without it ($-0.008$); meta-learning per-tensor rates and decays learns almost nothing beyond its starting values.
 Over 200k-token books, online learning closes about half of the gap between Pythia-14M and a frozen Pythia-31M, but Pythia-31M learning online gains just as much: at these sizes, online learning does not favor the smaller model.
-These are preliminary results with one seed, plain SGD and few books.
+Plain SGD barely moves Pythia-70M's MLPs; a per-tensor normalized update more than doubles its gain and gives it a clear but much smaller cache than at 14M and 31M, and with every update rule tuned the same way the smaller models do not pay more general knowledge per nat of gain.
+These are preliminary results with one seed per size, three sizes and few books.
 \end{abstract}
 
 \section{Introduction}
@@ -56,7 +58,9 @@ Our contributions:
 \item \textbf{Controls that split the online gain}: by distance to the token's previous occurrence, into a local part (which needs the order of the text) and a global part (a shuffled stream), into same-book and earlier-book memory, and against a count cache. The long-range gain is local and mostly tied to the current book.
 \item The \textbf{location of the memory}: updating only the MLPs, or one middle layer's MLP, keeps most of the long-range gain; the output layer alone does not.
 \item \textbf{Locality as a variable}: streams that interleave $K$ books, which show that making the cache more aggressive does not pay off at any locality level tested, while a small decaying fast part on top of the slow learner does, by a small margin.
+\item \textbf{Probes of eviction and forgetting}: frozen snapshots of the learner, scored on a never-read control book and on held-out text, show that a book's memory is evicted within a few thousand tokens and that general knowledge is lost outside the stream's domain but not inside it.
 \item \textbf{Long contexts and model size}: on 200k-token books, online learning is worth about half the step from Pythia-14M to Pythia-31M, but Pythia-31M gains as much from it.
+\item \textbf{Update rules across sizes}: plain SGD starves Pythia-70M's MLPs; a per-tensor normalized update recovers part of its cache, Adam produces none at any size.
 \end{itemize}
 
 \section{Related work}
@@ -104,6 +108,10 @@ Some runs update only part of the network (the output embedding, everything else
 In the \emph{slow and fast} rule the model predicts with $S + F$, where $F$ starts at 0; after each chunk, with $g$ the gradient at $S + F$, $S \leftarrow S - 10^{-4} g$ on all parameters and $F \leftarrow \lambda F - \alpha g$ on the tensors that have a fast part.
 Without a fast part this reproduces plain SGD at $10^{-4}$ exactly.
 
+\paragraph{Snapshot probes.}
+To measure what the weights hold at a given point, we copy them (a \emph{snapshot}) and score held-out text with them frozen, then let the learner continue; reading a stream in segments this way gives exactly the same losses as reading it at once.
+The held-out sets are never trained on: the first 6 PG-19 validation books of the held-out split (tokens 0--3839 of each) and the start of WikiText-103's test split \cite{merity2017pointer} (the articles behind its first 20{,}480 tokens), detokenized with the WikiText detokenizer of the LM evaluation harness (19{,}456 tokens).
+
 \paragraph{Locality streams.}
 To vary locality, each of the 25 books is chunked on its own (78 chunks; the remainder is dropped) and the same chunks are read in different orders: the books one after the other ($K=1$), groups of 5 books with chunks interleaved round-robin inside a group ($K=5$), all 25 books round-robin ($K=25$), and one random order (shuffled, seed 0).
 
@@ -127,7 +135,7 @@ Online learning lowers Pythia-14M's loss from 4.3922 to 4.2929 nats/token (Table
 For rare tokens last seen in an earlier chunk the gain falls with distance, from $+0.301$ under 1k tokens back to $+0.143$ at 1k--10k and is within noise at 10k--100k; tokens never seen before lose ($-0.062$), as do tokens repeated inside their own chunk ($-0.107$), which attention already copies (Figure~\ref{fig:distance}a).
 After each switch to a new book the gain starts near zero and keeps growing over the 20k tokens of a book (Figure~\ref{fig:distance}b).
 Shuffling the chunks keeps the training data and removes the order.
-The shuffled learner keeps 61\% of the overall gain, which is therefore mostly adaptation to old books in general, but only 18\% of the gain under 1k tokens and 27\% at 1k--10k: the long-range gain is local (locality $+0.247$ and $+0.105$).
+The shuffled learner keeps 61\% of the overall gain, mostly adaptation to PG-19 books in general (it carries over to unseen PG-19 books but not to other text; Section~\ref{sec:forgetting}), but only 18\% of the gain under 1k tokens and 27\% at 1k--10k: the long-range gain is local (locality $+0.247$ and $+0.105$).
 
 \begin{table}[t]
 \centering\small
@@ -171,18 +179,26 @@ Updating everything but the output embedding reproduces the full learner; updati
 \label{tab:baselines}
 \end{table}
 
-\subsection{Eviction: a book's memory decays slowly}
+\subsection{Eviction: fast, with a long tail}\label{sec:eviction}
 
-Three books A are split into halves A1 and A2 of 10k tokens; online learning reads A1, then $I \in \{0, 10\text{k}, 100\text{k}\}$ tokens of other books, then A2, and a second run replaces A1 with 10k tokens of a different book B1.
-The \emph{memory of A} is the loss on A2 after B1 minus the loss on A2 after A1: $+0.038$, $+0.027$ and $+0.019$ nats/token at $I = 0$, 10k and 100k (mean of 3 books, all positive at every $I$; Figure~\ref{fig:eviction}).
-The comparison is matched, so the memory of A halves over 100k tokens.
-How the two runs get there is open: the A1 run's gain on A2 is flat ($+0.086$, $+0.082$, $+0.085$) while the B1 run's grows ($+0.048$, $+0.055$, $+0.067$), which is consistent both with the A1 run keeping A and with it losing A-specific memory while gaining general adaptation at the same rate.
-Updating everything but the output embedding gives a similar memory; the unigram cache keeps $+0.008$ at $I = 0$ and nothing after 10k tokens.
+A first test split three books A into halves A1 and A2 of 10k tokens; online learning read A1, then $I \in \{0, 10\text{k}, 100\text{k}\}$ tokens of other books, then A2, and a second run replaced A1 with 10k tokens of a different book B1.
+The loss on A2 after B1 minus the loss after A1 was $+0.038$, $+0.027$ and $+0.019$ nats/token at $I = 0$, 10k and 100k (mean of 3 books), a slow decline; a unigram cache keeps $+0.008$ at $I = 0$ and nothing after 10k tokens.
+But both runs keep learning while they read A2, and this comparison cannot tell whether the A1 run loses A or the B1 run catches up through general adaptation.
+
+Snapshot probes separate the two.
+For each of 20 books A (paired with a control book C among the 25), the learner reads A1 followed by PG-19 validation books (a different interlude for each A); at each checkpoint, A2 and the same span C2 of the never-read control book are scored frozen with the snapshot (Figure~\ref{fig:eviction}).
+The gain on A2 over the pretrained model is $+0.067 \pm 0.007$ right after A1, halves after about 5k tokens of other books, and is within noise from 30k tokens on ($+0.010 \pm 0.005$).
+The control never gains ($-0.030 \pm 0.007$ after A1, between $-0.011$ and $-0.032$ later), so there is no general adaptation for a comparison run to catch up with: the learner loses A.
+The \emph{memory of A}, the gain on A2 minus the gain on C2 at the same snapshot, is $+0.097 \pm 0.013$ after A1, halves after about 6k tokens, and keeps a long tail: $+0.044 \pm 0.007$ at 10k, $+0.031 \pm 0.006$ at 100k and $+0.016 \pm 0.008$ at 300k.
+The first test's slow decline came from scoring A2 online: with frozen probes its own metric is $+0.123$, $+0.040$ and $+0.021$ at $I = 0$, 10k and 100k.
+The memory is mostly about tokens of A1: rare tokens of A2 that occur in A1 carry $+0.223 \pm 0.029$ at $I = 0$, rare tokens that do not $+0.056 \pm 0.011$.
+Updating only layer 4's MLP at a higher learning rate (Section~\ref{sec:aggressive}) gives more memory early ($+0.021 \pm 0.003$) but a lower gain on A2 itself ($-0.010 \pm 0.002$): its extra memory is a larger loss on the control book.
+The slow and fast rule (Section~\ref{sec:dual}) adds $+0.023 \pm 0.002$ of memory at $I = 0$, $+0.013 \pm 0.002$ at 10k and nothing measurable from 30k, a half-life of roughly 10k tokens.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.45\linewidth]{figures/eviction.pdf}
-\caption{Memory of book A against the number of tokens of other books between A1 and A2 (mean of 3 books, Pythia-14M).}
+\includegraphics[width=\linewidth]{figures/eviction.pdf}
+\caption{Eviction probed with frozen snapshots (Pythia-14M, mean of 20 books, bands $\pm 1$ SE over books). (a) Memory of A: gain on A2 minus gain on a never-read control book C2, scored with the same snapshot, against the number of tokens of other books read after A1. (b) Gain on A2 over the pretrained model, and on C2 (dashed) for plain SGD on all parameters.}
 \label{fig:eviction}
 \end{figure}
 
@@ -220,13 +236,14 @@ Most of the gain on interleaved streams is the global part that shuffling keeps.
 \label{fig:locality}
 \end{figure}
 
-\subsection{Making the cache more aggressive does not pay off}
+\subsection{Making the cache more aggressive does not pay off}\label{sec:aggressive}
 
 A more aggressive cache should gain more when locality is strong and lose more when it is weak, so that settings cross over as locality decreases.
 They do not (Table~\ref{tab:aggressive}): updating only layer 4's MLP at a higher learning rate, or with a fast part that decays back to the pretrained weights, is worse than plain SGD on every stream, and the order of the settings never changes.
 The aggressive settings do gain more on recent same-book tokens ($+0.267$ and $+0.295$ against $+0.210$ on $K=1$), but they lose far more on everything else ($-0.292$ and $-0.234$ against $-0.059$ on never-seen tokens).
 The gap to plain SGD narrows as locality grows (for MLP 4 at lr $10^{-2}$: 0.113 shuffled, 0.082 with $K=1$, 0.045 on the long books), so a crossover may exist at stronger locality than we tested.
 Decay makes weak locality more costly, not less: it throws away the general adaptation that carries most of the gain there.
+Much of the cost is forgetting: these settings lose up to $0.15$ nats/token on unseen PG-19 books and up to $0.43$ on WikiText (Section~\ref{sec:forgetting}).
 
 \begin{table}[t]
 \centering\footnotesize\setlength{\tabcolsep}{3pt}
@@ -235,7 +252,7 @@ Decay makes weak locality more costly, not less: it throws away the general adap
 \label{tab:aggressive}
 \end{table}
 
-\subsection{Slow and fast weights}
+\subsection{Slow and fast weights}\label{sec:dual}
 
 A separate fast part does help, if it sits on top of the slow learner.
 With the slow part as plain SGD on all parameters and a small fast part ($\alpha = 10^{-3}$, $\lambda = 0.99$, half-life about 18k tokens) on one middle MLP, picked on validation books, the gain over plain SGD is small but robust: $+0.012 \pm 0.001$ with $K=1$, $+0.021 \pm 0.003$ on the long books and $-0.008 \pm 0.000$ shuffled (Table~\ref{tab:dual}).
@@ -256,6 +273,23 @@ We also learned one $\alpha$ and one $\lambda$ for each of 25 weight matrices (M
 The held-out loss improved by only 0.004 nats/token before stopping, and every learned $\alpha$ stayed within 0.8--1.34 times its starting value.
 On the test streams the learned rule ties the hand-picked one with $K=1$ and on the long books and loses more shuffled ($-0.020$ against $-0.008$): the small fast parts on the other tensors add cost without adding gain.
 
+\subsection{General knowledge is lost outside the domain}\label{sec:forgetting}
+
+Snapshots taken every 10k tokens are scored frozen on the held-out sets; \emph{forgetting} is the snapshot's loss minus the pretrained model's, averaged over the snapshots in the second half of the stream (Table~\ref{tab:forgetting}).
+On WikiText, Pythia-14M learning online with $K=1$ loses $+0.196 \pm 0.006$ nats/token, 4\% of its frozen loss and about twice its gain on the stream; about half of it appears in the first 30k tokens, and over an 800k-token stream it levels off at $+0.23$--$0.27$.
+Raw WikiText, with its tokenization markers, gives $+0.312$; half of that is on the markers themselves (`` @-@ '', spaces before punctuation), a shift in formatting rather than lost knowledge.
+On unseen PG-19 books there is no forgetting with $K=1$ ($-0.006$), and the shuffled learner's snapshots are better than the pretrained model ($-0.045$): the gain that survives shuffling is adaptation to PG-19 books that carries over to unseen ones, at a cost on other text ($+0.112$ on WikiText).
+The aggressive settings forget far more, which explains much of their low gains.
+The fast part forgets slightly more than plain SGD alone ($+0.017 \pm 0.001$ on WikiText) for slightly more gain, so its exchange rate (stream gain divided by WikiText forgetting) is the same (0.53 against 0.51).
+Pythia-31M at its learning rate forgets more than 14M ($+0.033 \pm 0.005$) for a smaller gain.
+
+\begin{table}[t]
+\centering\footnotesize\setlength{\tabcolsep}{3pt}
+\input{tables/forgetting}
+\caption{Forgetting of held-out text: snapshot loss minus pretrained loss, mean over the snapshots in the second half of the stream ($\pm$ SE over held-out chunks); positive means knowledge lost. Stream gain over each model's frozen loss ($\pm$ SE over books). Last column: stream gain / detokenized WikiText forgetting.}
+\label{tab:forgetting}
+\end{table}
+
 \subsection{Long contexts and model size}
 
 On longer books, online learning is worth a large part of a model-size step.
@@ -263,9 +297,33 @@ On 4 books of 200k tokens (Table~\ref{tab:verylong}, Figure~\ref{fig:verylong}),
 Pythia-31M learning online gains about as much as 14M does ($+0.168 \pm 0.013$ against $+0.170$ over each model's own frozen loss), stays $0.348 \pm 0.013$ ahead of 14M learning online, and beats a frozen Pythia-70M in 3 late bins, though not overall ($-0.054 \pm 0.010$).
 
 Online learning does not favor the smaller model.
-On the main stream the locality is the same at 14M and 31M overall ($+0.038$ and $+0.039$; difference $+0.000 \pm 0.001$), and slightly larger at 31M on recent same-book tokens ($+0.018 \pm 0.004$); at 70M it almost vanishes (Table~\ref{tab:size}).
+On the main stream the locality is the same at 14M and 31M overall ($+0.038$ and $+0.039$; difference $+0.000 \pm 0.001$), and slightly larger at 31M on recent same-book tokens ($+0.018 \pm 0.004$); with plain SGD it almost vanishes at 70M (Table~\ref{tab:size}), which the next section traces partly to the update rule.
 At these sizes this does not support the hypothesis that smaller models rely more on a cache in their weights.
-Pythia-70M is the exception: plain SGD barely helps it at any learning rate we tried (check-book gain 0.011 at its best rate $10^{-5}$, against 0.057 for 31M and 0.070 for 14M), so whether its weak locality is about size or about the optimizer remains open.
+
+\subsection{Update rules across sizes}\label{sec:rules}
+
+With plain SGD, Pythia-70M barely learns (check-book gain 0.011 at its best rate $10^{-5}$, against 0.057 for 31M and 0.070 for 14M).
+Logging the update over the first 40 chunks shows why: at 70M the MLPs move about 100 times less per step than at 14M (relative update $\lVert\Delta W\rVert / \lVert W\rVert$ of $1.1\times10^{-6}$ against $1.2\times10^{-4}$), and attention takes 78\% of the update.
+We therefore compare three update rules, each with its learning rate picked on val-pick for every size: plain SGD; Adam \cite{kingma2015adam}, with a fresh state for each stream; and normalized SGD, which moves every tensor by the same relative amount per step, $W \leftarrow W - \eta \lVert W\rVert g / \lVert g\rVert$ (Table~\ref{tab:rules}, Figure~\ref{fig:rules}).
+Normalized SGD more than doubles 70M's gain ($+0.057$ against $+0.025$; $+0.033 \pm 0.002$ paired) and gives it clear locality ($+0.084 \pm 0.006$ within 1k tokens, against $+0.016$), but far less than at 14M and 31M under the same rule ($+0.372$ and $+0.418$).
+Locality is flat from 14M to 31M and falls at 70M, in absolute terms, relative to the frozen loss (5.1\%, 6.1\%, 1.3\%) and as a share of the gain.
+At 70M both new rules diverge at the step sizes the smaller models use, and their picks are at the low edge of the grid.
+Adam works against the cache: in-order runs gain less than shuffled ones at every size (locality $-0.05$ to $-0.14$ within 1k tokens), and never-seen tokens lose much more.
+The smaller model does not pay more general knowledge per nat of gain: the exchange rate is higher at 14M than at 31M under every rule; 70M's is higher still, but at much smaller steps and gains.
+
+\begin{table}[t]
+\centering\footnotesize\setlength{\tabcolsep}{2.8pt}
+\resizebox{\linewidth}{!}{\input{tables/rules}}
+\caption{Three update rules at three sizes, each at the learning rate picked on val-pick: gain with $K=1$ over each model's frozen loss, locality (in order $-$ shuffled, $\pm$ SE over books, paired), forgetting of detokenized WikiText ($K=1$, last half of the stream) and the exchange rate (stream gain / WikiText forgetting) with $K=1$ and shuffled.}
+\label{tab:rules}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/rules_size.pdf}
+\caption{(a) Locality within 1k tokens against model size for three update rules. (b) Stream gain divided by WikiText forgetting ($K=1$, log scale).}
+\label{fig:rules}
+\end{figure}
 
 \begin{table}[t]
 \centering\small
@@ -292,30 +350,34 @@ Pythia-70M is the exception: plain SGD barely helps it at any learning rate we t
 
 The results support a qualified version of the cache picture.
 Online learning gives a small language model a memory beyond its attention window; its long-range part is local, tied mostly to the current book rather than to the recency of single tokens, and stored in the MLPs below the output, consistent with feed-forward layers as key-value memories \cite{geva2021transformer} and with MLP weights as the adaptable part in recent test-time training \cite{feng2026inplace}.
-General knowledge is only partly kept: tokens not seen recently are predicted slightly worse.
+The memory is short-lived: a book's gain halves within about 5k tokens of other books, with a small tail that lasts beyond 100k.
+General knowledge is kept within the domain but not outside it: on unseen PG-19 books the learner loses nothing, on WikiText it loses about twice its gain on the stream.
 Turning the base weights into a more aggressive cache does not pay off at any locality we tested, because the cost on everything else grows much faster than the gain on recent material.
-A small fast part on top of the slow learner has a better exchange rate, but its gain is small.
+A small fast part on top of the slow learner gains more on recent material at little cost on the stream, but its gain is small and it does not reduce the forgetting of general text.
+The update rule matters as much as the model: plain SGD hardly moves Pythia-70M's MLPs, Adam produces no cache at all, and a per-tensor normalized update gives the largest cache at every size.
 Context length matters more: over 200k-token books online learning is worth about half the step from 14M to 31M parameters, yet the larger model gains as much, so the cache does not substitute for size at these scales.
 
 These are preliminary results with clear limitations.
 \begin{itemize}
 \item \textbf{One seed, few books.} Error bars are across books (25, or 5 and 4 for the long streams), not seeds; with 4--5 books the SE itself is uncertain.
-\item \textbf{Plain SGD with per-run learning rates}, each picked from three or four values, several at the edge of their grid; comparisons across layers and sizes mix in the learning rate.
+\item \textbf{Update rule and learning rates.} Most results use plain SGD with per-run learning rates picked from three to five values, several at the edge of their grid; comparisons across layers and sizes mix in the learning rate, and the size of the cache depends on the update rule (Section~\ref{sec:rules}).
 \item \textbf{Tuning data.} The first picks, including 31M's learning rate ($3\times10^{-4}$), were made on two test check books, not validation books.
 \item \textbf{Overlapping books.} Two of the four 200k-token books, and all five 100k-token books, are also among the 25 books of the main stream (their first 20k tokens).
 \item \textbf{Missing error bars.} The $K=5$ and $K=25$ runs saved no per-token losses and have no error bars.
-\item \textbf{Three sizes from one family}, with a non-monotonic locality (flat from 14M to 31M, near zero at 70M).
-\item \textbf{Capacity not tested}: the eviction test cannot separate forgetting a book from adapting to books in general.
+\item \textbf{Three sizes from one family}; locality is flat from 14M to 31M and falls at 70M, where the rates of the new update rules are at the edge of their grids. Pythia-160M was too slow to run on CPU.
+\item \textbf{Capacity not tested}: we measure how fast one book is evicted, not how many books the weights can hold at once.
+\item \textbf{Held-out text}: forgetting is measured on one encyclopedic text and 6 books; detokenizing WikiText changes it by a third.
 \item \textbf{Wall time} is only a rough compute proxy: frozen runs batch 16 chunks, online runs process one chunk and one update at a time.
 \end{itemize}
 
-Next steps: interleaving many books chunk by chunk to measure how many contexts the weights can hold; an update normalized across layers or sizes, and more sizes, to understand Pythia-70M; and PolyPythias \cite{vanderwal2025polypythias}, which provides several pre-training seeds per size, for error bars across models.
+Next steps: interleaving many books chunk by chunk to measure how many contexts the weights can hold; more sizes and a finer learning-rate grid with the normalized update; and PolyPythias \cite{vanderwal2025polypythias}, which provides several pre-training seeds per size, for error bars across models.
 
 \section{Conclusion}
 
 A small language model that takes one SGD step on each chunk it reads gains a memory beyond its attention window: local, tied mostly to the current book, stored in the MLPs below the output, and more than a count cache beyond 1k tokens.
+The memory is evicted within a few thousand tokens of other text, and general knowledge outside the domain is lost at about twice the rate the stream is gained.
 Making that memory more aggressive does not help; a small decaying fast part on one MLP, on top of the slow learner, helps a little and robustly.
-On long books online learning is worth about half a model-size step, but larger models gain just as much from it.
+On long books online learning is worth about half a model-size step, but larger models gain just as much from it, and with a per-tensor normalized update the cache shrinks, but does not vanish, at 70M.
 
 {\small
 \setlength{\bibsep}{1.5pt plus 0.5pt}

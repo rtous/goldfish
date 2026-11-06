@@ -170,8 +170,55 @@ def size():
     write("verylong", ["run", "loss", "gain over frozen 14M", "share of 14M--31M gap", "seconds"], rows, "lrrrr")
 
 
+def forgetting():
+    """Test 12: stream gain, forgetting on detokenized and raw WikiText and on held-out books (last-half
+    means), exchange rate."""
+    summ = {r["run"]: r for r in read("test12_general/summary.csv")}
+    det = {r["run"]: r for r in read("test12_general/detok.csv")}
+    runs = [("14m_full_1e-4_K1", "14M, all, lr $10^{-4}$", "$K=1$"), ("14m_full_1e-4_shuffled", "", "shuffled"),
+            ("14m_full_1e-4_verylong", "", "long (800k)"),
+            ("14m_mlp4_3e-3_K1", "14M, MLP 4, lr $3\\!\\times\\!10^{-3}$", "$K=1$"),
+            ("14m_mlp4_1e-2_K1", "14M, MLP 4, lr $10^{-2}$", "$K=1$"), ("14m_fast4_d0.99_K1", "14M, MLP 4, decay", "$K=1$"),
+            ("14m_dual_K1", "14M, slow + fast (MLP 2)", "$K=1$"), ("14m_dual_shuffled", "", "shuffled"),
+            ("31m_full_3e-4_K1", "31M, all, lr $3\\!\\times\\!10^{-4}$", "$K=1$"), ("31m_full_3e-4_shuffled", "", "shuffled")]
+    rows = []
+    for key, label, stream in runs:
+        s_, d_ = summ[key], det[key]
+        rows.append([label, stream, pm(s_["stream_gain"], s_["stream_gain_se"]),
+                     pm(d_["last_half_detok"], d_["last_half_detok_se"]), "$%+.3f$" % float(d_["last_half_raw"]),
+                     "$%+.3f$" % float(s_["mean_forgetting_last_half_books"]), d_["exchange_rate_detok"] or "--"])
+    write("forgetting", ["run", "stream", "stream gain", "WikiText (detok.)", "WikiText (raw)", "held-out books",
+                         "gain / forgetting"], rows, "llrrrrr")
+
+
+def rules():
+    """Test 13: per size and update rule, picked rate, gain, locality, WikiText forgetting, exchange rates."""
+    res = read("test13_optimizers/results.csv")
+    ex = {(r["size"], r["rule"]): r for r in read("test13_optimizers/exchange.csv")}
+    names = {"sgd": "plain SGD", "adam": "Adam", "nsgd": "normalized SGD"}
+
+    def lr(v):
+        m, e = ("%.0e" % float(v)).split("e")
+        return "$%s10^{%d}$" % ("" if m == "1" else m + "\\!\\times\\!", int(e))
+
+    rows = []
+    for size in ("14m", "31m", "70m"):
+        for rule in ("sgd", "adam", "nsgd"):
+            a = next(r for r in res if r["size"] == size and r["rule"] == rule and r["bin"] == "all tokens")
+            n = next(r for r in res if r["size"] == size and r["rule"] == rule and r["bin"] == "earlier chunk < 1k")
+            e = ex[size, rule]
+            rows.append([size.upper() if rule == "sgd" else "", names[rule], lr(e["lr"]), pm(a["gain_K1"], a["gain_K1_se"]),
+                         pm(n["locality"], n["locality_se"]), pm(a["locality"], a["locality_se"]),
+                         pm(e["wiki_forgetting_K1"], e["wiki_forgetting_K1_se"]), e["exchange_rate_K1"],
+                         e["exchange_rate_shuffled"]])
+    write("rules", ["size", "rule", "lr", "gain, $K=1$", "locality $<$1k", "locality, all", "WikiText forgetting",
+                    "gain / forg., $K=1$", "shuffled"], rows, "llrrrrrrr")
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
+    forgetting()
+    rules()
     distance()
     samebook()
     baselines()

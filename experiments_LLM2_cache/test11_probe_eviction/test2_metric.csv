@@ -1,0 +1,4 @@
+I,books,test2_metric,test2_metric_se,memory_A_same_books,memory_A_same_books_se
+0,3,0.1227,0.0313,0.0840,0.0108
+9984,3,0.0397,0.0032,0.0338,0.0184
+100096,3,0.0212,0.0013,0.0100,0.0197

@@ -1,0 +1,3 @@
+main_K1__14m_sgd_0.0001_all 425 s
+main_shuffled__14m_sgd_0.0001_all 1527 s
+verylong__14m_sgd_0.0001_all 1603 s

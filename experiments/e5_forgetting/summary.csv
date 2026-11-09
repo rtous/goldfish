@@ -1,0 +1,4 @@
+run,size,rule,lr,stream,stream_gain,stream_gain_se,frozen_wiki,frozen_books,wiki_last_half,wiki_last_half_se,wiki_last_half_under_2se,wiki_final,wiki_final_se,wiki_final_under_2se,books_last_half,books_last_half_se,books_last_half_under_2se,books_final,books_final_se,books_final_under_2se,exchange_rate,wiki_over_stream_gain
+main_K1__14m_sgd_0.0001_all,14m,sgd,0.0001,main_K1,0.0997,0.0057,4.6331,4.3543,0.1958,0.0060,False,0.2518,0.0070,False,-0.0056,0.0101,True,-0.0021,0.0092,True,0.51,1.96
+main_shuffled__14m_sgd_0.0001_all,14m,sgd,0.0001,main_shuffled,0.0619,0.0025,4.6331,4.3543,0.1123,0.0044,False,0.1018,0.0051,False,-0.0451,0.0081,False,-0.0522,0.0083,False,0.55,1.81
+verylong__14m_sgd_0.0001_all,14m,sgd,0.0001,verylong,0.1702,0.0110,4.6331,4.3543,0.2681,0.0077,False,0.3229,0.0094,False,0.0521,0.0128,False,0.0501,0.0223,False,0.63,1.58

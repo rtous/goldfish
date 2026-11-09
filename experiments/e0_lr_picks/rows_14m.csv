@@ -1,0 +1,15 @@
+size,rule,params,lr,val_pick_loss,extension,seconds,picked
+14m,frozen,all,0,4.3354,,,
+14m,sgd,all,3e-05,4.2779,False,85,False
+14m,sgd,all,0.0001,4.2565,False,57,True
+14m,sgd,all,0.0003,4.2732,False,57,False
+14m,adam,all,1e-06,4.2880,False,70,False
+14m,adam,all,3e-06,4.2667,False,71,True
+14m,adam,all,1e-05,4.2691,False,69,False
+14m,adam,all,3e-05,4.3781,False,71,False
+14m,adam,all,0.0001,4.7719,False,71,False
+14m,nsgd,all,1e-05,4.2848,False,65,False
+14m,nsgd,all,3e-05,4.2614,False,65,False
+14m,nsgd,all,0.0001,4.2577,False,68,True
+14m,nsgd,all,0.0003,4.3451,False,66,False
+14m,nsgd,all,0.001,4.7529,False,65,False

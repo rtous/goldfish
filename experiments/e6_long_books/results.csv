@@ -1,0 +1,6 @@
+run,label,key,loss,gain_over_frozen14m,se,gap31_closed
+frozen14m,frozen 14M,verylong__14m_frozen,4.4192,0.0000,0.0000,0.0000
+frozen31m,frozen 31M,verylong__31m_frozen,4.0686,0.3506,0.0102,1.0000
+frozen70m,frozen 70M,verylong__70m_frozen,3.8465,0.5727,0.0128,1.6336
+online14m,14M online,verylong__14m_sgd_0.0001_all,4.2490,0.1702,0.0110,0.4854
+online31m,31M online,verylong__31m_sgd_0.0003_all,3.9008,0.5184,0.0126,1.4787

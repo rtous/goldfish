@@ -1,3 +1,0 @@
-cpu; 20 A books; full_1e-4 3362 s, test2_metric 65 s
-cpu; 20 A books; mlp4_3e-3 2788 s
-cpu; 20 A books; dual 3373 s

@@ -1,0 +1,3 @@
+model,params,chi2,dof,rmse_nats
+exponential + floor,"a 0.05656, tau 3678, c 0.03353",8.68,4,0.0084
+power law,"a 0.0972, I0 253.2, b 0.2",1.98,4,0.0038

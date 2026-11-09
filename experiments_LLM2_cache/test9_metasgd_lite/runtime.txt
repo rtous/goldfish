@@ -1,3 +1,0 @@
-{"init_from_test8_pick": "mlp4_a0.001_l0.99", "meta_steps": 350, "best_step": 150, "best_heldout_loss": 4.3413, "passes_over_train": 2, "stop": "no held-out improvement for 200 meta-steps", "meta_minutes": 14.9, "exact_meta_gradients": true, "full_1e-4_reproduces_test7": {"K1": true, "shuffled": true, "long": true}}
-cpu
-frozen14m_books25 79 s, frozen14m_long 77 s, full_1e-4_K1 70 s, full_1e-4_shuffled 70 s, full_1e-4_long 70 s, metasgd_lite_K1 79 s, metasgd_lite_shuffled 78 s, metasgd_lite_long 78 s

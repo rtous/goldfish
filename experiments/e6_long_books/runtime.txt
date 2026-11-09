@@ -1,0 +1,5 @@
+verylong__14m_frozen 335 s
+verylong__31m_frozen 457 s
+verylong__70m_frozen 667 s
+verylong__14m_sgd_0.0001_all 1603 s
+verylong__31m_sgd_0.0003_all 596 s

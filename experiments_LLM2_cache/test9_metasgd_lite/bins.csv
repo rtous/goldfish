@@ -1,5 +1,0 @@
-config,stream,gain_same_book_lt10k,gain_never_seen,vs_full_same_book_lt10k,vs_full_never_seen,tokens_same_book_lt10k,tokens_never_seen
-full_1e-4,K1,0.2102,-0.0586,0.0000,0.0000,46767,21046
-full_1e-4,shuffled,0.0441,-0.0549,0.0000,0.0000,46767,21046
-metasgd_lite,K1,0.2887,-0.0670,0.0785,-0.0083,46767,21046
-metasgd_lite,shuffled,0.0223,-0.0767,-0.0218,-0.0218,46767,21046

@@ -1,1 +1,0 @@
-lr 0.0001; frozen 81 s, online 73 s; cpu

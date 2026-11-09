@@ -1,0 +1,9 @@
+I,books,gain_A2,gain_A2_se,gain_A2_under_2se,gain_C2,gain_C2_se,gain_C2_under_2se,memory_A,memory_A_se,memory_A_under_2se,memory_rare_in_A1,memory_rare_in_A1_se,memory_rare_in_A1_under_2se,memory_rare_not_in_A1,memory_rare_not_in_A1_se,memory_rare_not_in_A1_under_2se
+pre,20,0.0000,0.0000,True,0.0000,0.0000,True,0.0000,0.0000,True,-0.0000,0.0000,True,0.0000,0.0000,True
+0,20,0.0673,0.0073,False,-0.0296,0.0074,False,0.0969,0.0128,False,0.2229,0.0288,False,0.0564,0.0111,False
+1024,20,0.0615,0.0065,False,-0.0110,0.0044,False,0.0725,0.0099,False,0.1640,0.0215,False,0.0377,0.0098,False
+3072,20,0.0425,0.0057,False,-0.0121,0.0047,False,0.0547,0.0083,False,0.1094,0.0216,False,0.0148,0.0107,True
+9984,20,0.0234,0.0054,False,-0.0206,0.0039,False,0.0440,0.0069,False,0.0800,0.0219,False,0.0243,0.0093,False
+29952,20,0.0101,0.0053,True,-0.0324,0.0057,False,0.0424,0.0060,False,0.0698,0.0210,False,0.0238,0.0125,True
+100096,20,0.0026,0.0049,True,-0.0286,0.0060,False,0.0312,0.0063,False,0.0398,0.0240,True,0.0087,0.0167,True
+300032,20,-0.0004,0.0064,True,-0.0168,0.0070,False,0.0164,0.0078,False,0.0272,0.0265,True,-0.0050,0.0182,True

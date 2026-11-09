@@ -1,0 +1,5 @@
+long__14m_sgd_0.0001_all 165 s
+main_K1__14m_sgd_0.0001_all 425 s
+main_K5__14m_sgd_0.0001_all 144 s
+main_K25__14m_sgd_0.0001_all 148 s
+main_shuffled__14m_sgd_0.0001_all 1527 s

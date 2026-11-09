@@ -1,3 +1,0 @@
-chosen lr {"mlp_l1": 0.001, "mlp_l2": 0.003, "mlp_l3": 0.0003, "mlp_l4": 0.003, "mlp_l5": 0.003, "mlp_l6": 0.001, "mlp_last2": 0.001, "31m": 0.0003, "70m": 1e-05}
-parameters {"mlp_l1": 131712, "mlp_l2": 131712, "mlp_l3": 131712, "mlp_l4": 131712, "mlp_l5": 131712, "mlp_l6": 131712, "mlp_last2": 263424, "14m": 14067712, "31m": 30494720, "70m": 70426624}
-cpu; picks14 110 s, mlp_l1 54 s, mlp_l2 53 s, mlp_l3 52 s, mlp_l4 51 s, mlp_l5 49 s, mlp_l6 48 s, mlp_last2 50 s, picks31 35 s, frozen31 87 s, online31 108 s, shuffled31 114 s, picks70 51 s, online70 203 s, shuffled70 195 s

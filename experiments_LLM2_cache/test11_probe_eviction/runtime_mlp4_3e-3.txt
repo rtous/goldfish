@@ -1,1 +1,0 @@
-cpu; 20 A books; mlp4_3e-3 2788 s

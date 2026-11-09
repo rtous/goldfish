@@ -1,0 +1,89 @@
+subset,label,lr,params,bin,tokens,gain,gain_se,gain_under_2se,minus_full,minus_full_se,minus_full_under_2se,share_of_full
+all,all parameters,0.0001,14067712,all tokens,497250,0.0997,0.0057,False,0.0000,0.0000,False,1.00
+all,all parameters,0.0001,14067712,same chunk,9886,-0.1105,0.0142,False,0.0000,0.0000,False,1.00
+all,all parameters,0.0001,14067712,"earlier chunk, < 1k",17036,0.3075,0.0113,False,0.0000,0.0000,False,1.00
+all,all parameters,0.0001,14067712,"earlier chunk, 1k-10k",33973,0.1440,0.0080,False,0.0000,0.0000,False,1.00
+all,all parameters,0.0001,14067712,"earlier chunk, 10k-100k",44109,0.0090,0.0061,True,0.0000,0.0000,False,1.00
+all,all parameters,0.0001,14067712,"earlier chunk, >= 100k",13125,-0.0392,0.0092,False,0.0000,0.0000,False,1.00
+all,all parameters,0.0001,14067712,never seen,20976,-0.0586,0.0130,False,0.0000,0.0000,False,1.00
+all,all parameters,0.0001,14067712,"earlier chunk, 1k-10k, same book",29577,0.1542,0.0084,False,0.0000,0.0000,False,1.00
+output,output only,0.003,6438912,all tokens,497250,0.0723,0.0055,False,-0.0275,0.0031,False,0.72
+output,output only,0.003,6438912,same chunk,9886,0.0941,0.0134,False,0.2046,0.0166,False,-0.85
+output,output only,0.003,6438912,"earlier chunk, < 1k",17036,0.2520,0.0171,False,-0.0554,0.0184,False,0.82
+output,output only,0.003,6438912,"earlier chunk, 1k-10k",33973,0.0649,0.0051,False,-0.0791,0.0095,False,0.45
+output,output only,0.003,6438912,"earlier chunk, 10k-100k",44109,-0.0534,0.0049,False,-0.0623,0.0059,False,-5.93
+output,output only,0.003,6438912,"earlier chunk, >= 100k",13125,-0.1461,0.0042,False,-0.1069,0.0084,False,3.73
+output,output only,0.003,6438912,never seen,20976,-0.1433,0.0124,False,-0.0846,0.0110,False,2.44
+output,output only,0.003,6438912,"earlier chunk, 1k-10k, same book",29577,0.0719,0.0056,False,-0.0823,0.0101,False,0.47
+no_output,all but output,0.0001,7628800,all tokens,497250,0.0941,0.0054,False,-0.0056,0.0005,False,0.94
+no_output,all but output,0.0001,7628800,same chunk,9886,-0.1103,0.0147,False,0.0001,0.0031,True,1.00
+no_output,all but output,0.0001,7628800,"earlier chunk, < 1k",17036,0.2941,0.0113,False,-0.0133,0.0020,False,0.96
+no_output,all but output,0.0001,7628800,"earlier chunk, 1k-10k",33973,0.1405,0.0085,False,-0.0035,0.0009,False,0.98
+no_output,all but output,0.0001,7628800,"earlier chunk, 10k-100k",44109,0.0092,0.0060,True,0.0002,0.0009,True,1.02
+no_output,all but output,0.0001,7628800,"earlier chunk, >= 100k",13125,-0.0380,0.0094,False,0.0013,0.0013,True,0.97
+no_output,all but output,0.0001,7628800,never seen,20976,-0.0581,0.0129,False,0.0006,0.0014,True,0.99
+no_output,all but output,0.0001,7628800,"earlier chunk, 1k-10k, same book",29577,0.1506,0.0090,False,-0.0036,0.0010,False,0.98
+mlp,MLP only,0.0003,790272,all tokens,497250,0.1067,0.0066,False,0.0070,0.0017,False,1.07
+mlp,MLP only,0.0003,790272,same chunk,9886,-0.0965,0.0172,False,0.0139,0.0070,False,0.87
+mlp,MLP only,0.0003,790272,"earlier chunk, < 1k",17036,0.4152,0.0164,False,0.1077,0.0084,False,1.35
+mlp,MLP only,0.0003,790272,"earlier chunk, 1k-10k",33973,0.1581,0.0098,False,0.0140,0.0032,False,1.10
+mlp,MLP only,0.0003,790272,"earlier chunk, 10k-100k",44109,-0.0077,0.0065,True,-0.0167,0.0021,False,-0.86
+mlp,MLP only,0.0003,790272,"earlier chunk, >= 100k",13125,-0.0698,0.0103,False,-0.0306,0.0039,False,1.78
+mlp,MLP only,0.0003,790272,never seen,20976,-0.0769,0.0140,False,-0.0182,0.0037,False,1.31
+mlp,MLP only,0.0003,790272,"earlier chunk, 1k-10k, same book",29577,0.1752,0.0105,False,0.0210,0.0035,False,1.14
+attention,attention only,0.0003,396288,all tokens,497250,0.0663,0.0053,False,-0.0334,0.0010,False,0.67
+attention,attention only,0.0003,396288,same chunk,9886,-0.1493,0.0144,False,-0.0388,0.0068,False,1.35
+attention,attention only,0.0003,396288,"earlier chunk, < 1k",17036,0.2593,0.0108,False,-0.0481,0.0052,False,0.84
+attention,attention only,0.0003,396288,"earlier chunk, 1k-10k",33973,0.1018,0.0082,False,-0.0423,0.0019,False,0.71
+attention,attention only,0.0003,396288,"earlier chunk, 10k-100k",44109,-0.0174,0.0066,False,-0.0264,0.0024,False,-1.93
+attention,attention only,0.0003,396288,"earlier chunk, >= 100k",13125,-0.0544,0.0098,False,-0.0152,0.0039,False,1.39
+attention,attention only,0.0003,396288,never seen,20976,-0.0738,0.0138,False,-0.0152,0.0031,False,1.26
+attention,attention only,0.0003,396288,"earlier chunk, 1k-10k, same book",29577,0.1103,0.0086,False,-0.0439,0.0023,False,0.72
+mlp@0,MLP of layer 1,0.001,131712,all tokens,497250,0.0534,0.0042,False,-0.0464,0.0029,False,0.54
+mlp@0,MLP of layer 1,0.001,131712,same chunk,9886,-0.0749,0.0124,False,0.0356,0.0083,False,0.68
+mlp@0,MLP of layer 1,0.001,131712,"earlier chunk, < 1k",17036,0.2359,0.0123,False,-0.0715,0.0103,False,0.77
+mlp@0,MLP of layer 1,0.001,131712,"earlier chunk, 1k-10k",33973,0.1026,0.0069,False,-0.0414,0.0048,False,0.71
+mlp@0,MLP of layer 1,0.001,131712,"earlier chunk, 10k-100k",44109,-0.0041,0.0053,True,-0.0130,0.0050,False,-0.45
+mlp@0,MLP of layer 1,0.001,131712,"earlier chunk, >= 100k",13125,-0.0549,0.0102,False,-0.0157,0.0060,False,1.40
+mlp@0,MLP of layer 1,0.001,131712,never seen,20976,-0.0546,0.0103,False,0.0040,0.0100,True,0.93
+mlp@0,MLP of layer 1,0.001,131712,"earlier chunk, 1k-10k, same book",29577,0.1130,0.0072,False,-0.0412,0.0053,False,0.73
+mlp@1,MLP of layer 2,0.001,131712,all tokens,497250,0.0693,0.0044,False,-0.0304,0.0020,False,0.70
+mlp@1,MLP of layer 2,0.001,131712,same chunk,9886,-0.0798,0.0124,False,0.0307,0.0084,False,0.72
+mlp@1,MLP of layer 2,0.001,131712,"earlier chunk, < 1k",17036,0.2418,0.0109,False,-0.0657,0.0072,False,0.79
+mlp@1,MLP of layer 2,0.001,131712,"earlier chunk, 1k-10k",33973,0.1210,0.0075,False,-0.0230,0.0036,False,0.84
+mlp@1,MLP of layer 2,0.001,131712,"earlier chunk, 10k-100k",44109,0.0063,0.0045,True,-0.0026,0.0039,True,0.70
+mlp@1,MLP of layer 2,0.001,131712,"earlier chunk, >= 100k",13125,-0.0406,0.0081,False,-0.0014,0.0059,True,1.04
+mlp@1,MLP of layer 2,0.001,131712,never seen,20976,-0.0507,0.0102,False,0.0080,0.0077,True,0.86
+mlp@1,MLP of layer 2,0.001,131712,"earlier chunk, 1k-10k, same book",29577,0.1310,0.0077,False,-0.0231,0.0037,False,0.85
+mlp@2,MLP of layer 3,0.0003,131712,all tokens,497250,0.0551,0.0039,False,-0.0446,0.0022,False,0.55
+mlp@2,MLP of layer 3,0.0003,131712,same chunk,9886,-0.0860,0.0122,False,0.0245,0.0066,False,0.78
+mlp@2,MLP of layer 3,0.0003,131712,"earlier chunk, < 1k",17036,0.2041,0.0087,False,-0.1033,0.0093,False,0.66
+mlp@2,MLP of layer 3,0.0003,131712,"earlier chunk, 1k-10k",33973,0.0860,0.0068,False,-0.0581,0.0030,False,0.60
+mlp@2,MLP of layer 3,0.0003,131712,"earlier chunk, 10k-100k",44109,-0.0097,0.0047,False,-0.0186,0.0033,False,-1.08
+mlp@2,MLP of layer 3,0.0003,131712,"earlier chunk, >= 100k",13125,-0.0488,0.0082,False,-0.0096,0.0041,False,1.25
+mlp@2,MLP of layer 3,0.0003,131712,never seen,20976,-0.0559,0.0108,False,0.0027,0.0061,True,0.95
+mlp@2,MLP of layer 3,0.0003,131712,"earlier chunk, 1k-10k, same book",29577,0.0933,0.0069,False,-0.0609,0.0034,False,0.61
+mlp@3,MLP of layer 4,0.001,131712,all tokens,497250,0.0631,0.0042,False,-0.0366,0.0019,False,0.63
+mlp@3,MLP of layer 4,0.001,131712,same chunk,9886,-0.0610,0.0096,False,0.0495,0.0101,False,0.55
+mlp@3,MLP of layer 4,0.001,131712,"earlier chunk, < 1k",17036,0.1867,0.0097,False,-0.1208,0.0050,False,0.61
+mlp@3,MLP of layer 4,0.001,131712,"earlier chunk, 1k-10k",33973,0.0952,0.0062,False,-0.0489,0.0036,False,0.66
+mlp@3,MLP of layer 4,0.001,131712,"earlier chunk, 10k-100k",44109,-0.0055,0.0049,True,-0.0144,0.0032,False,-0.61
+mlp@3,MLP of layer 4,0.001,131712,"earlier chunk, >= 100k",13125,-0.0616,0.0071,False,-0.0224,0.0068,False,1.57
+mlp@3,MLP of layer 4,0.001,131712,never seen,20976,-0.0632,0.0103,False,-0.0046,0.0063,True,1.08
+mlp@3,MLP of layer 4,0.001,131712,"earlier chunk, 1k-10k, same book",29577,0.1012,0.0067,False,-0.0530,0.0036,False,0.66
+mlp@4,MLP of layer 5,0.003,131712,all tokens,497250,0.0732,0.0060,False,-0.0265,0.0019,False,0.73
+mlp@4,MLP of layer 5,0.003,131712,same chunk,9886,-0.0719,0.0131,False,0.0386,0.0117,False,0.65
+mlp@4,MLP of layer 5,0.003,131712,"earlier chunk, < 1k",17036,0.2848,0.0141,False,-0.0227,0.0087,False,0.93
+mlp@4,MLP of layer 5,0.003,131712,"earlier chunk, 1k-10k",33973,0.1111,0.0085,False,-0.0330,0.0039,False,0.77
+mlp@4,MLP of layer 5,0.003,131712,"earlier chunk, 10k-100k",44109,-0.0335,0.0070,False,-0.0425,0.0038,False,-3.72
+mlp@4,MLP of layer 5,0.003,131712,"earlier chunk, >= 100k",13125,-0.0924,0.0090,False,-0.0531,0.0086,False,2.36
+mlp@4,MLP of layer 5,0.003,131712,never seen,20976,-0.0898,0.0144,False,-0.0312,0.0062,False,1.53
+mlp@4,MLP of layer 5,0.003,131712,"earlier chunk, 1k-10k, same book",29577,0.1210,0.0093,False,-0.0332,0.0043,False,0.78
+mlp@5,MLP of layer 6,0.001,131712,all tokens,497250,0.0478,0.0042,False,-0.0519,0.0020,False,0.48
+mlp@5,MLP of layer 6,0.001,131712,same chunk,9886,-0.0534,0.0085,False,0.0571,0.0124,False,0.48
+mlp@5,MLP of layer 6,0.001,131712,"earlier chunk, < 1k",17036,0.1106,0.0079,False,-0.1969,0.0081,False,0.36
+mlp@5,MLP of layer 6,0.001,131712,"earlier chunk, 1k-10k",33973,0.0528,0.0061,False,-0.0913,0.0044,False,0.37
+mlp@5,MLP of layer 6,0.001,131712,"earlier chunk, 10k-100k",44109,-0.0154,0.0048,False,-0.0243,0.0035,False,-1.71
+mlp@5,MLP of layer 6,0.001,131712,"earlier chunk, >= 100k",13125,-0.0832,0.0067,False,-0.0440,0.0062,False,2.12
+mlp@5,MLP of layer 6,0.001,131712,never seen,20976,-0.0843,0.0118,False,-0.0257,0.0070,False,1.44
+mlp@5,MLP of layer 6,0.001,131712,"earlier chunk, 1k-10k, same book",29577,0.0535,0.0065,False,-0.1007,0.0051,False,0.35

@@ -222,5 +222,6 @@ __marimo__/
 # macOS
 .DS_Store
 
-# experiments_LLM2_cache: PG-19 books, Hugging Face downloads and token caches
-experiments_LLM2_cache/data/
+# experiments: PG-19 books, Hugging Face downloads and token caches; lib/ is code (the generic lib/ rule above would hide it)
+experiments/data/
+!experiments/lib/

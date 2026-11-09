@@ -1,2 +1,0 @@
-picks {"unigram": [0.05, 1000], "output": 0.001, "no_output": 0.0001}; cpu
-picks 33 s; test 1 stream: output 49 s, no_output 62 s; test 2: 254 s in total (output 99 s, no_output 125 s)

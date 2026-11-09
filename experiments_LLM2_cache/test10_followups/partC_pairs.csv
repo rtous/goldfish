@@ -1,7 +1,0 @@
-comparison,token_mean,se,books
-14M dual - 14M full_1e-4,0.0103,0.0008,4
-31M online - 14M full_1e-4,0.3482,0.0130,4
-31M online - frozen 31M,0.1678,0.0125,4
-14M full_1e-4 - frozen 14M,0.1702,0.0110,4
-31M online - frozen 70M,-0.0543,0.0103,4
-frozen 31M - 14M full_1e-4,0.1804,0.0192,4

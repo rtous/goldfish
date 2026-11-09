@@ -1,0 +1,4 @@
+main_K1__14m_frozen 240 s
+main_K1__14m_sgd_0.0001_all 425 s
+main_shuffled__14m_sgd_0.0001_all 1527 s
+unigram cache: seconds, no model

@@ -1,2 +1,0 @@
-{"books": ["30312", "30754", "3608", "37702"], "dual": "mlp2_a0.001_l0.99"}
-frozen14m 126 s, 14m full_1e-4 113 s, 14m dual mlp2_a0.001_l0.99 113 s, frozen31m 142 s, 31m online lr3e-4 182 s, frozen70m 193 s

@@ -1,7 +1,0 @@
-config,stream,gain_same_book_lt10k,gain_never_seen,vs_full_same_book_lt10k,vs_full_never_seen,tokens_same_book_lt10k,tokens_never_seen
-full_1e-4,K1,0.2102,-0.0586,0.0000,0.0000,46767,21046
-full_1e-4,shuffled,0.0441,-0.0549,0.0000,0.0000,46767,21046
-mlp4_a0.001_l0.99,K1,0.2679,-0.0647,0.0577,-0.0061,46767,21046
-mlp4_a0.001_l0.99,shuffled,0.0352,-0.0655,-0.0089,-0.0106,46767,21046
-mlp4_a0.001_l0.9,K1,0.2375,-0.0597,0.0273,-0.0011,46767,21046
-mlp4_a0.001_l0.9,shuffled,0.0393,-0.0583,-0.0048,-0.0035,46767,21046

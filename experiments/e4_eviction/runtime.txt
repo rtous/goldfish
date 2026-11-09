@@ -1,0 +1,1 @@
+cpu; 20 A books, plain SGD lr 1e-4; 3305 s (55 min)

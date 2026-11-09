@@ -1,0 +1,20 @@
+\begin{tabular}{llrrr}
+\toprule
+quantity & bin / stream & MLPs only, lr $3\!\times\!10^{-4}$ & all, lr $10^{-4}$ & MLPs only $-$ all \\
+\midrule
+gain shuffled & all tokens & $+0.059_{\pm .003}$ & $+0.062_{\pm .003}$ & $-0.003_{\pm .001}$ \\
+ & earlier, $<$ 1k & $+0.081_{\pm .011}$ & $+0.062_{\pm .007}$ & $+0.019_{\pm .005}$ \\
+ & 1k-10k, same book & $+0.030_{\pm .006}$ & $+0.034_{\pm .005}$ & $-0.004_{\pm .002}^{\dagger}$ \\
+ & never seen & $-0.071_{\pm .010}$ & $-0.055_{\pm .009}$ & $-0.016_{\pm .003}$ \\
+locality & all tokens & $+0.048_{\pm .004}$ & $+0.038_{\pm .004}$ & $+0.010_{\pm .001}$ \\
+ & earlier, $<$ 1k & $+0.334_{\pm .011}$ & $+0.245_{\pm .009}$ & $+0.088_{\pm .005}$ \\
+ & 1k-10k, same book & $+0.145_{\pm .009}$ & $+0.120_{\pm .007}$ & $+0.025_{\pm .003}$ \\
+ & never seen & $-0.006_{\pm .011}^{\dagger}$ & $-0.004_{\pm .010}^{\dagger}$ & $-0.002_{\pm .004}^{\dagger}$ \\
+WikiText forgetting & $K=1$ & $+0.235_{\pm .007}$ & $+0.196_{\pm .006}$ & $+0.039_{\pm .003}$ \\
+ & shuffled & $+0.144_{\pm .005}$ & $+0.112_{\pm .004}$ & $+0.031_{\pm .002}$ \\
+held-out books forgetting & $K=1$ & $+0.016_{\pm .009}^{\dagger}$ & $-0.006_{\pm .010}^{\dagger}$ & $+0.022_{\pm .002}$ \\
+ & shuffled & $-0.034_{\pm .007}$ & $-0.045_{\pm .008}$ & $+0.011_{\pm .001}$ \\
+exchange rate & $K=1$ & 0.45 & 0.51 & $-0.06$ \\
+ & shuffled & 0.41 & 0.55 & $-0.14$ \\
+\bottomrule
+\end{tabular}

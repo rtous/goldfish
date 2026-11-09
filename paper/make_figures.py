@@ -40,6 +40,12 @@ def lr_text(v):
     return "%se%d" % (mantissa, int(exponent))
 
 
+def save(fig, name):
+    """Save figures/<name>.pdf with no creation date, so that rebuilding gives identical files."""
+    fig.savefig(os.path.join(FIG, name + ".pdf"), metadata={"CreationDate": None})
+    plt.close(fig)
+
+
 def zero(ax):
     ax.axhline(0, color=MUTED, lw=0.8)
 
@@ -70,7 +76,7 @@ def distance_and_position():
     b.set_title("(b) by position in the book (online)", fontsize=8, loc="left", color=INK)
     b.legend(loc="lower right")
     fig.tight_layout()
-    fig.savefig(os.path.join(FIG, "distance_position.pdf"))
+    save(fig, "distance_position")
 
 
 def eviction():
@@ -97,14 +103,14 @@ def eviction():
         ax.legend(loc="upper right")
     a.set_ylabel("nats/token")
     fig.tight_layout()
-    fig.savefig(os.path.join(FIG, "eviction.pdf"))
+    save(fig, "eviction")
 
 
 PARAMS = {"14m": 14.07, "31m": 30.49, "70m": 70.43}  # millions
 
 
 def rules_size():
-    """E7: locality within 1k tokens and gain / WikiText forgetting against size, per update rule."""
+    """E7: locality within 1k tokens and exchange rate against size, per update rule."""
     rows = read("e7_update_rules/results.csv")
     ex = read("e7_update_rules/exchange.csv")
     fig, (a, b) = plt.subplots(1, 2, figsize=(7.0, 2.5))
@@ -132,52 +138,79 @@ def rules_size():
     b.set_title("(b) exchange rate, books in order", fontsize=8, loc="left")
     a.legend(loc="lower left")
     fig.tight_layout()
-    fig.savefig(os.path.join(FIG, "rules_size.pdf"))
+    save(fig, "rules_size")
 
 
-def layers_and_size():
-    """E2: one layer's MLP of Pythia-14M updated (each at its own rate); E7: plain SGD by model size."""
+def layers():
+    """E2: one layer's MLP of Pythia-14M updated (each at its own rate), against all parameters (dotted)."""
     e2 = {(r["subset"], r["bin"]): r for r in read("e2_where/results.csv")}
-    fig, (a, b) = plt.subplots(1, 2, figsize=(7.0, 2.5))
+    fig, a = plt.subplots(figsize=(4.6, 2.6))
     x = np.arange(1, 7)
     lrs = [lr_text(e2["mlp@%d" % (i - 1), "all tokens"]["lr"]) for i in x]
-    curves = (("earlier chunk, < 1k", "earlier chunk, < 1k", BLUE), ("earlier chunk, 1k-10k, same book",
-              "earlier chunk, 1k-10k, same book", ORANGE), ("all tokens", "all tokens", INK))
-    for b_, label, color in curves:
-        a.plot(x, [float(e2["mlp@%d" % (i - 1), b_]["gain"]) for i in x], color=color, lw=1.6, marker="o", ms=3,
-               label=label)
+    for b_, label, color in (("earlier chunk, < 1k", "earlier chunk, < 1k", BLUE),
+                             ("earlier chunk, 1k-10k, same book", "earlier chunk, 1k-10k, same book", ORANGE),
+                             ("all tokens", "all tokens", INK)):
+        y = np.array([float(e2["mlp@%d" % (i - 1), b_]["gain"]) for i in x])
+        se = np.array([float(e2["mlp@%d" % (i - 1), b_]["gain_se"]) for i in x])
+        a.errorbar(x, y, yerr=se, color=color, lw=1.6, marker="o", ms=3, capsize=2, label=label)
         a.axhline(float(e2["all", b_]["gain"]), color=color, lw=0.8, ls=":")
     zero(a)
     a.set_xticks(x, ["%d\nlr %s" % (i, lr) for i, lr in zip(x, lrs)])
-    a.set_ylim(top=0.5)
+    a.set_ylim(top=0.45)
+    a.set_xlabel("layer whose MLP is updated (1 = first)")
     a.set_ylabel("gain over frozen (nats/token)")
-    a.set_title("(a) Pythia-14M, one layer's MLP (dotted: all parameters)", fontsize=8, loc="left", color=INK)
-    a.legend(loc="upper right")
-    e7 = [r for r in read("e7_update_rules/results.csv") if r["rule"] == "sgd"]
-    sizes = list(PARAMS.values())
-    for b_, key, label, color in (("earlier chunk < 1k", "locality", "locality, earlier chunk < 1k", BLUE),
-                                  ("1k-10k same book", "locality", "locality, 1k-10k, same book", ORANGE),
-                                  ("all tokens", "gain_K1", "overall gain, in order", INK)):
-        b.plot(sizes, [float(next(r[key] for r in e7 if r["size"] == s_ and r["bin"] == b_)) for s_ in PARAMS],
-               color=color, lw=1.6, marker="o", ms=3, label=label)
-    zero(b)
-    b.set_xscale("log")
-    lr_sgd = {r["size"]: r["lr"] for r in e7}
-    b.set_xticks(sizes, ["%s\nlr %s" % (n.upper(), lr_text(lr_sgd[n])) for n in PARAMS])
-    b.minorticks_off()
-    b.set_ylabel("nats/token")
-    b.set_title("(b) plain SGD, all parameters, by model size", fontsize=8, loc="left", color=INK)
-    b.set_ylim(top=0.4)
-    b.legend(loc="upper right")
+    a.legend(loc="upper right", fontsize=6.5)
+    a.set_title("(a) one layer's MLP updated", fontsize=8, loc="left", color=INK)
     fig.tight_layout()
-    fig.savefig(os.path.join(FIG, "layers_size.pdf"))
+    save(fig, "layers")
+
+
+def tradeoff():
+    """E2 and E7: locality within 1k tokens against WikiText forgetting (K = 1, last half), +- 1 SE on both
+    axes. Marker by update rule, colour by size; MLPs only (plain SGD, 14M) as an open marker. Also writes
+    tables/tradeoff_points.csv."""
+    pts = []
+    for r in read("e7_update_rules/results.csv"):
+        if r["bin"] != "earlier chunk < 1k":
+            continue
+        e = next(x for x in read("e7_update_rules/exchange.csv") if x["size"] == r["size"] and x["rule"] == r["rule"])
+        pts.append({"size": r["size"], "rule": r["rule"], "params": "all", "lr": r["lr"], "locality_1k": r["locality"],
+                    "locality_1k_se": r["locality_se"], "wiki_forgetting": e["wiki_forgetting_K1"],
+                    "wiki_forgetting_se": e["wiki_forgetting_K1_se"]})
+    mvf = {(r["quantity"], r["stream"]): r for r in read("e2_where/mlp_vs_full.csv")}
+    loc, wiki = mvf["locality", "earlier chunk, < 1k"], mvf["WikiText forgetting, last half", "K = 1"]
+    pts.append({"size": "14m", "rule": "sgd", "params": "mlp", "lr": loc["lr_mlp"], "locality_1k": loc["mlp"],
+                "locality_1k_se": loc["mlp_se"], "wiki_forgetting": wiki["mlp"], "wiki_forgetting_se": wiki["mlp_se"]})
+    with open(os.path.join(HERE, "tables", "tradeoff_points.csv"), "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(pts[0]))
+        w.writeheader()
+        w.writerows(pts)
+    color = {"14m": BLUE, "31m": ORANGE, "70m": INK}
+    marker = {"sgd": "o", "adam": "s", "nsgd": "^"}
+    names = {"sgd": "plain SGD", "adam": "Adam", "nsgd": "normalized SGD"}
+    fig, ax = plt.subplots(figsize=(5.4, 3.2))
+    for p in pts:
+        mlp = p["params"] == "mlp"
+        ax.errorbar(float(p["locality_1k"]), float(p["wiki_forgetting"]), xerr=float(p["locality_1k_se"]),
+                    yerr=float(p["wiki_forgetting_se"]), color=color[p["size"]], marker=marker[p["rule"]], ms=6,
+                    mfc="white" if mlp else color[p["size"]], mew=1.4, lw=0.9, capsize=2, ls="none")
+    handles = [plt.Line2D([], [], color=color[s_], marker="o", ls="none", label=s_.upper()) for s_ in color]
+    handles += [plt.Line2D([], [], color=MUTED, marker=marker[r_], ls="none", label=names[r_]) for r_ in marker]
+    handles.append(plt.Line2D([], [], color=BLUE, marker="o", mfc="white", ls="none", label="14M plain SGD, MLPs only"))
+    ax.legend(handles=handles, loc="upper left", bbox_to_anchor=(1.01, 1), fontsize=7)
+    ax.axvline(0, color=MUTED, lw=0.8)
+    ax.set_xlabel("locality, earlier chunk $<$ 1k (nats/token)")
+    ax.set_ylabel("WikiText forgetting (nats/token)")
+    ax.grid(axis="x", color=GRID, lw=0.8)
+    fig.tight_layout()
+    save(fig, "tradeoff")
 
 
 def locality_levels():
     """E3: gain over frozen 14M (plain SGD, all parameters) against the locality of the stream, +- 1 SE."""
     rows = {r["stream"]: r for r in read("e3_locality_levels/results.csv")}
     streams = ["long", "main_K1", "main_K5", "main_K25", "main_shuffled"]
-    fig, ax = plt.subplots(figsize=(5.0, 2.5))
+    fig, ax = plt.subplots(figsize=(3.9, 2.6))
     x = np.arange(len(streams))
     g = np.array([float(rows[s]["gain"]) for s in streams])
     se = np.array([float(rows[s]["gain_se"]) for s in streams])
@@ -186,10 +219,11 @@ def locality_levels():
     zero(ax)
     ax.set_xticks(x, ["long\n(5 x 100k)", "K = 1", "K = 5", "K = 25", "shuffled"])
     ax.set_xlabel("stream, from strongest to weakest locality")
+    ax.set_title("(b) streams of decreasing locality", fontsize=8, loc="left", color=INK)
     ax.set_ylabel("gain over frozen 14M (nats/token)")
     ax.legend(loc="upper right")
     fig.tight_layout()
-    fig.savefig(os.path.join(FIG, "locality_levels.pdf"))
+    save(fig, "locality_levels")
 
 
 def very_long():
@@ -212,7 +246,7 @@ def very_long():
     ax.set_ylabel("loss (nats/token)")
     ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1), fontsize=7)
     fig.tight_layout()
-    fig.savefig(os.path.join(FIG, "very_long.pdf"))
+    save(fig, "very_long")
 
 
 if __name__ == "__main__":
@@ -220,6 +254,7 @@ if __name__ == "__main__":
     distance_and_position()
     eviction()
     rules_size()
-    layers_and_size()
+    layers()
+    tradeoff()
     locality_levels()
     very_long()

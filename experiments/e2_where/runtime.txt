@@ -1,7 +1,7 @@
 main_K1__14m_sgd_0.0001_all 425 s
 main_K1__14m_sgd_0.003_output 125 s
 main_K1__14m_sgd_0.0001_no_output 133 s
-main_K1__14m_sgd_0.0003_mlp 121 s
+main_K1__14m_sgd_0.0003_mlp 1088 s
 main_K1__14m_sgd_0.0003_attention 118 s
 main_K1__14m_sgd_0.001_mlp@0 113 s
 main_K1__14m_sgd_0.001_mlp@1 112 s
@@ -9,3 +9,4 @@ main_K1__14m_sgd_0.0003_mlp@2 111 s
 main_K1__14m_sgd_0.001_mlp@3 110 s
 main_K1__14m_sgd_0.003_mlp@4 107 s
 main_K1__14m_sgd_0.001_mlp@5 102 s
+main_shuffled__14m_sgd_0.0003_mlp 1090 s

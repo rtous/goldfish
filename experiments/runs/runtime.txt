@@ -38,3 +38,5 @@ verylong__31m_frozen 456 s
 main_K1__14m_frozen 240 s
 long__14m_frozen 192 s
 verylong__14m_frozen 335 s
+main_shuffled__14m_sgd_0.0003_mlp 1090 s
+main_K1__14m_sgd_0.0003_mlp 1088 s

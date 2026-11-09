@@ -1,6 +1,6 @@
 \begin{tabular}{llrrrrrrr}
 \toprule
-size & rule & lr & gain, $K=1$ & locality $<$1k & locality, all & WikiText forgetting & gain / forg., $K=1$ & shuffled \\
+size & rule & lr & gain, $K=1$ & locality, $<$ 1k & locality, all & WikiText forgetting & exch. rate, $K=1$ & shuffled \\
 \midrule
 14M & plain SGD & $10^{-4}$ & $+0.100_{\pm .006}$ & $+0.245_{\pm .009}$ & $+0.038_{\pm .004}$ & $+0.196_{\pm .006}$ & 0.51 & 0.55 \\
  & Adam & $3\!\times\!10^{-6}$ & $+0.086_{\pm .005}$ & $-0.052_{\pm .009}$ & $-0.004_{\pm .004}^{\dagger}$ & $+0.141_{\pm .005}$ & 0.61 & 0.91 \\

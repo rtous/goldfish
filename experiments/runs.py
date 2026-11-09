@@ -67,8 +67,9 @@ def registry():
         for size in SIZES:
             for rule in RULES:
                 out.append(spec(size, rule, st, snapshots=True, pk=pk))
-    for params in E2_SUBSETS:
-        out.append(spec("14m", "sgd", "main_K1", params, pk=pk))
+    for params in E2_SUBSETS:  # MLP only also with snapshots and shuffled, to compare it with all parameters
+        out.append(spec("14m", "sgd", "main_K1", params, snapshots=params == "mlp", pk=pk))
+    out.append(spec("14m", "sgd", "main_shuffled", "mlp", snapshots=True, pk=pk))
     for st in ("main_K5", "main_K25"):
         out.append(spec("14m", "sgd", st, pk=pk))
     out += [spec("14m", "frozen", "long"), spec("14m", "sgd", "long", pk=pk)]

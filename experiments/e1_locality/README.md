@@ -24,7 +24,7 @@ about recency (C3), and is it more than a word-frequency cache (C4)?
 |---|---|---|---|---|---|---|
 | all tokens | 497,250 | +0.100 ± 0.006 | +0.062 ± 0.003 | +0.038 ± 0.004 | +0.018 ± 0.004 | +0.082 ± 0.004 |
 | same chunk | 9,886 | -0.111 ± 0.014 | -0.133 ± 0.010 | +0.022 ± 0.013* | +0.096 ± 0.017 | -0.206 ± 0.022 |
-| earlier chunk, < 1k | 17,036 | +0.308 ± 0.011 | +0.062 ± 0.007 | +0.245 ± 0.009 | +0.461 ± 0.024 | -0.154 ± 0.026 |
+| earlier chunk, < 1k | 17,036 | +0.307 ± 0.011 | +0.062 ± 0.007 | +0.245 ± 0.009 | +0.461 ± 0.024 | -0.154 ± 0.026 |
 | earlier chunk, 1k-10k | 33,973 | +0.144 ± 0.008 | +0.035 ± 0.005 | +0.109 ± 0.007 | +0.059 ± 0.008 | +0.085 ± 0.008 |
 | — same book | 29,577 | +0.154 ± 0.008 | +0.034 ± 0.005 | +0.120 ± 0.007 | +0.070 ± 0.009 | +0.084 ± 0.008 |
 | — earlier book | 4,396 | +0.076 ± 0.012 | +0.040 ± 0.009 | +0.035 ± 0.010 | -0.016 ± 0.004 | +0.092 ± 0.011 |
@@ -43,7 +43,7 @@ By position in the book (`position.csv`), the in-order gain grows from +0.013 ±
 
 ## Findings
 
-- **C1, distance:** the gain reaches about 10k tokens back: +0.308 within 1k, +0.144 at 1k-10k,
+- **C1, distance:** the gain reaches about 10k tokens back: +0.307 within 1k, +0.144 at 1k-10k,
   and still +0.060 ± 0.011 for same-book repeats 10k-100k back; nothing beyond (earlier-book
   tokens 10k-100k back: +0.003 ± 0.006, under 2 SE).
 - **C2, local:** shuffling keeps 62% of the overall gain but only 20% within 1k and 24% at
@@ -52,7 +52,7 @@ By position in the book (`position.csv`), the in-order gain grows from +0.013 ±
   earlier-book ones at the same distance; same-book tokens 10k-100k back keep +0.036 of locality,
   earlier-book ones have none (-0.024).
 - **C4, more than a unigram cache beyond 1k:** the count cache wins within 1k (+0.461 against
-  +0.308) but the online learner wins at 1k-10k (+0.144 against +0.059) and beyond, and +0.082
+  +0.307) but the online learner wins at 1k-10k (+0.144 against +0.059) and beyond, and +0.082
   overall.
 
 ## Contamination (no runs; kept from old test 4)
@@ -80,6 +80,8 @@ nats/token) does not look like memorized text.
 - One model (14M), one rate, one seed; books are cut to 20k tokens, so distances over 20k are
   always earlier-book.
 - The unigram cache parameters were fixed (not tuned); within 1k a tuned cache would win by more.
+- Where the unigram cache has no count for a token, mixing it in costs exactly -log(0.95) = 0.051 nats,
+  so those bins have a constant loss and an SE of 0.
 - Same-chunk repeats lose under both orders: a chunk is scored before the update on it, so the
   loss there reflects updates from earlier chunks only.
 

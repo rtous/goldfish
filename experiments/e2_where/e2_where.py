@@ -6,7 +6,14 @@ output embedding, MLPs only, attention only, the MLP of a single layer (1 ... 6,
 
 Table (results.csv, long format): per subset and E1 bin, gain over frozen 14M with SE over books, and
 the paired difference to the full learner (subset - all parameters). Plot: single-layer MLPs next to
-the full learner. Usage (from experiments/):
+the full learner.
+
+MLP only against all parameters (mlp_vs_full.csv): both runs also on the shuffled stream, with snapshots
+(as E5). Per bin: gain in order, gain shuffled, locality (in order - shuffled, paired per token), SE over
+books, and the paired difference MLP only - all parameters. Forgetting on detokenized WikiText and the 6
+held-out books (last-half mean and final snapshot - pretrained; SE over WikiText chunks or held-out
+books), K = 1 and shuffled, and its paired difference (same snapshot positions); exchange rate = stream
+gain / last-half WikiText forgetting. Usage (from experiments/):
     ../venv/bin/python e2_where/e2_where.py run | report
 """
 import csv
@@ -20,7 +27,7 @@ import numpy as np  # noqa: E402
 
 import runs  # noqa: E402
 from data import chunk_set  # noqa: E402
-from metrics import bin_masks, summary  # noqa: E402
+from metrics import bin_masks, exchange_rate, forgetting, se, summary  # noqa: E402
 
 OUT = os.path.dirname(os.path.abspath(__file__))
 SUBSETS = ["all", "output", "no_output", "mlp", "attention"] + ["mlp@%d" % i for i in range(6)]
@@ -34,6 +41,72 @@ def keys():
     return {p: runs.find("14m", "sgd", "main_K1", p) for p in SUBSETS}
 
 
+COMPARE_BINS = ["all tokens", "earlier chunk, < 1k", "earlier chunk, 1k-10k, same book", "never seen"]
+
+
+def mlp_keys():
+    """{stream: {"mlp": key, "all": key}} for MLP only and all parameters, K = 1 and shuffled."""
+    return {st: {p: runs.find("14m", "sgd", st, p) for p in ("mlp", "all")} for st in ("main_K1", "main_shuffled")}
+
+
+def held_out_diff(r, k, n_wiki, n_books=6):
+    """Per held-out unit (WikiText chunk, or held-out book) snapshot - pretrained: last-half mean and final."""
+    snaps, pos = r["snaps"], r["positions"]
+    half = [i for i in range(1, len(pos)) if pos[i] > pos[-1] / 2]
+    d = {"last_half": np.mean([snaps[i] - snaps[0] for i in half], axis=0), "final": snaps[-1] - snaps[0]}[k]
+    per = (len(d) - n_wiki) // n_books
+    return {"wiki": d[:n_wiki], "books": np.array([d[n_wiki + per * b:n_wiki + per * (b + 1)].mean()
+                                                    for b in range(n_books)])}
+
+
+def mlp_vs_full(book, masks, frozen):
+    """Rows of mlp_vs_full.csv."""
+    k = mlp_keys()
+    pk = runs.picks()
+    r = {(st, p): runs.load(k[st][p]) for st in k for p in ("mlp", "all")}
+    lo = {key: v["loss"].reshape(-1) for key, v in r.items()}
+    rows = []
+
+    def row(section, quantity, stream, x, y, diff):
+        """x, y: dicts with mean, se (MLP only, all parameters); diff: paired MLP - all."""
+        out = {"section": section, "quantity": quantity, "stream": stream}
+        for name, v in (("mlp", x), ("full", y), ("mlp_minus_full", diff)):
+            out[name] = "%.4f" % v["mean"]
+            out[name + "_se"] = "%.4f" % v["se"] if v.get("se") is not None else ""
+            out[name + "_under_2se"] = bool(abs(v["mean"]) < 2 * v["se"]) if v.get("se") is not None else ""
+        rows.append(out)
+
+    for b in COMPARE_BINS:
+        m = masks[b] & np.isfinite(frozen)
+        for st, label in (("main_K1", "gain in order"), ("main_shuffled", "gain shuffled")):
+            row("stream", label, b, summary(frozen - lo[st, "mlp"], book, m), summary(frozen - lo[st, "all"], book, m),
+                summary(lo[st, "all"] - lo[st, "mlp"], book, m))
+        loc = {p: lo["main_shuffled", p] - lo["main_K1", p] for p in ("mlp", "all")}
+        row("stream", "locality", b, summary(loc["mlp"], book, m), summary(loc["all"], book, m),
+            summary(loc["mlp"] - loc["all"], book, m))
+    allm = np.isfinite(frozen)
+    for st, label in (("main_K1", "K = 1"), ("main_shuffled", "shuffled")):
+        assert (r[st, "mlp"]["positions"] == r[st, "all"]["positions"]).all()
+        n_wiki = r[st, "mlp"]["n_wiki"]
+        for which, wl in (("wiki", "WikiText forgetting"), ("books", "held-out books forgetting")):
+            for kind, kl in (("last_half", "last half"), ("final", "final")):
+                a = held_out_diff(r[st, "mlp"], kind, n_wiki)[which]
+                c = held_out_diff(r[st, "all"], kind, n_wiki)[which]
+                row("forgetting", "%s, %s" % (wl, kl), label, {"mean": a.mean(), "se": se(a)},
+                    {"mean": c.mean(), "se": se(c)}, {"mean": (a - c).mean(), "se": se(a - c)})
+        ex = {}
+        for p in ("mlp", "all"):
+            g = summary(frozen - lo[st, p], book, allm)["mean"]
+            f = forgetting(r[st, p]["snaps"], r[st, p]["positions"], n_wiki)["wiki"]["last_half"]
+            ex[p] = exchange_rate(g, f)
+        rows.append({"section": "exchange rate", "quantity": "stream gain / WikiText forgetting (last half)",
+                     "stream": label, "mlp": "%.2f" % ex["mlp"], "full": "%.2f" % ex["all"],
+                     "mlp_minus_full": "%.2f" % (ex["mlp"] - ex["all"])})
+    for x in rows:
+        x["lr_mlp"], x["lr_full"] = "%g" % pk["14m", "sgd", "mlp"], "%g" % pk["14m", "sgd", "all"]
+    return rows
+
+
 def write_csv(name, rows):
     with open(os.path.join(OUT, name), "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(dict.fromkeys(k for r in rows for k in r)))
@@ -42,7 +115,7 @@ def write_csv(name, rows):
 
 
 def run():
-    for k in list(keys().values()) + [runs.frozen_key("14m", "main_K1")]:
+    for k in list(keys().values()) + [runs.frozen_key("14m", "main_K1")] + list(mlp_keys()["main_shuffled"].values()):
         if not os.path.exists(runs.path_of(k)):
             runs.run(next(s for s in runs.registry() if s["key"] == k))
 
@@ -73,6 +146,12 @@ def report():
                                                                            and r["bin"] == b)))
                          if p != "all" else "1.00"})
     write_csv("results.csv", rows)
+    cmp_rows = mlp_vs_full(book, masks, frozen)
+    write_csv("mlp_vs_full.csv", cmp_rows)
+    for r in cmp_rows:
+        print("%-13s %-45s %-34s mlp %s +- %s  full %s +- %s  diff %s +- %s" % (
+            r["section"], r["quantity"], r["stream"], r["mlp"], r.get("mlp_se", ""), r["full"], r.get("full_se", ""),
+            r["mlp_minus_full"], r.get("mlp_minus_full_se", "")))
     for r in rows:
         if r["bin"] in ("all tokens", "earlier chunk, < 1k", "earlier chunk, 1k-10k, same book"):
             print("%-16s lr %-7s %-34s gain %s +- %s  share %s" % (r["label"], r["lr"], r["bin"], r["gain"], r["gain_se"],
@@ -80,6 +159,7 @@ def report():
     with open(os.path.join(OUT, "runtime.txt"), "w") as f:
         for p in SUBSETS:
             f.write("%s %d s\n" % (k[p], runs.seconds(k[p])))
+        f.write("%s %d s\n" % (mlp_keys()["main_shuffled"]["mlp"], runs.seconds(mlp_keys()["main_shuffled"]["mlp"])))
 
     style()
     fig, ax = plt.subplots(figsize=(6.4, 3.4))

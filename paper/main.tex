@@ -50,19 +50,17 @@ The benefit should depend on \emph{locality}: it should be larger when the input
 New material should push out old material, which we call \emph{eviction}; this is the useful side of forgetting.
 And the cache should leave the knowledge the model already had largely intact; we call the loss of that general knowledge, the harmful side, simply \emph{forgetting} from now on.
 
-We test this with small Pythia models \cite{biderman2023pythia} reading PG-19 books \cite{rae2020compressive}.
-Each 256-token chunk is scored on its own, without the previous chunks in the context, so anything that helps from further back must come through the weights; after scoring a chunk, the model takes one update step on it.
+We test this with small Pythia models \cite{biderman2023pythia} reading PG-19 books \cite{rae2020compressive}. We split the books into chunks of 256 tokens and score each one on its own, without the previous chunks in the context, so anything that helps from further back must come through the weights. After scoring a chunk, the model takes one update step on it.
 We compare reading the chunks in order with reading them shuffled, which removes their locality.
 We ask whether dynamic evaluation helps more when the input has locality than when it is shuffled, whether it evicts old content like a cache, what it costs in general knowledge, where in the network the memory lives and whether a knob sets its size, and whether it matters more in small models or can replace a larger one.
 
 Contributions, one per group of findings:
 \begin{itemize}
-\item a local memory beyond the window, tied to the current book and more than a token-count cache (Section~\ref{sec:local});
-\item its location: the MLPs, where updating only them gives more cache and more forgetting (Section~\ref{sec:where});
-\item the gain as a function of the locality of the input (Section~\ref{sec:levels});
-\item eviction and forgetting measured with frozen snapshots of the learner (Sections~\ref{sec:eviction} and~\ref{sec:forgetting});
-\item update rules across sizes, and a trade-off between cache and forgetting (Sections~\ref{sec:rules} and~\ref{sec:tradeoff});
-\item long books: what dynamic evaluation is worth against a larger model (Section~\ref{sec:long}).
+\item We measure the reach of the memory and its dependence on input locality, and compare it with a token-count cache (Sections~\ref{sec:local} and~\ref{sec:levels}).
+\item We locate where in the network the memory is stored (Section~\ref{sec:where}).
+\item We measure how fast other text evicts the memory, and how much general knowledge, inside and outside the domain, is forgotten (Sections~\ref{sec:eviction} and~\ref{sec:forgetting}).
+\item We study how the update rule and the model size affect the cache and its forgetting, and the trade-off between the two (Sections~\ref{sec:rules} and~\ref{sec:tradeoff}).
+\item We assess what dynamic evaluation is worth against a larger frozen model on long books (Section~\ref{sec:long}).
 \end{itemize}
 
 \section{Related work}

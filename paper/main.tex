@@ -1,6 +1,6 @@
 \documentclass[10pt]{article}
 
-\usepackage[utf8]{inputenc}
+\usepackage[utf8]{inputenc} 
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage[margin=2.2cm]{geometry}
@@ -32,15 +32,7 @@
 \maketitle
 
 \begin{abstract}
-Text read by a language model stays on the same characters, places and vocabulary far longer than an attention window lasts.
-We ask whether a small model that keeps learning online, updating its weights on each chunk after predicting it, holds a memory of its current context that behaves like a cache.
-Pythia models read PG-19 books in 256-token chunks scored without earlier context, so any help from more than 256 tokens back must come through the weights.
-For Pythia-14M with plain SGD, rare tokens last seen less than 1k tokens back gain \gainInOrderOneK{} nats/token, and only \shuffledShareOneK{} of that remains when the chunks are shuffled.
-The memory is tied to the current book, lives mostly in the MLPs, and halves after about \evictHalfLife{} tokens of other books.
-It shares storage with general knowledge: loss on WikiText rises by \forgetWikiKOne{} nats/token, about \wikiOverGainKOne{} times the gain on the stream, while unseen PG-19 books lose nothing.
-Within 14M and within 31M, every setting that gives a stronger cache (which weights are updated, which update rule) also forgets more.
-On 200k-token books, online learning closes \gapClosedFourteen{} of the gap between Pythia-14M and a frozen Pythia-31M, and Pythia-31M gains as much from it.
-These results use one seed, three sizes of one model family and PG-19 books only.
+Dynamic evaluation, or test-time training, lets a language model keep learning from the text it reads at inference time. The cost is forgetting, as each update can overwrite earlier knowledge, and this is usually treated as a problem. However, the inputs a model receives at inference time often have temporal locality. A book, a long conversation or a code base stays on the same characters, names and vocabulary far longer than an attention window lasts. In a small model, with little room in its weights, locality and forgetting together could be exploited to obtain the behaviour of a cache memory. The weights would hold the recent context beyond the window, and new material would push out old material. We ask whether this cache behaviour arises on its own in a standard transformer that takes plain gradient steps as it reads. We test this with small Pythia models reading PG-19 books. We split the books into short chunks and score each one without the preceding text in context, so any help from earlier chunks must come through the weights. We then compare reading the chunks in order with reading them shuffled, which removes their locality. We find support for the cache hypothesis. The weights hold a memory of the current book beyond the attention window, stored mostly in the MLPs. This memory depends on the order of the input and fades as other books are read, halving within a few thousand tokens. As expected, it competes with general knowledge for the same weights. Knowledge of the same domain is largely preserved, while out-of-domain text is partly forgotten, and a stronger cache is hard to get without more of this forgetting. Decoupling the two could give a stronger cache and a better use of temporal locality, reducing the model size required for a given performance.
 \end{abstract}
 
 \section{Introduction}

@@ -136,8 +136,8 @@ def verylong():
     """E6: 200k-token books, 14M and 31M online against frozen 14M / 31M / 70M (C9)."""
     res = {r["run"]: r for r in read("e6_long_books/results.csv")}
     rows = []
-    for key, label in (("frozen14m", "frozen 14M"), ("online14m", "14M online, lr $10^{-4}$"), ("frozen31m", "frozen 31M"),
-                       ("online31m", "31M online, lr $3\\!\\times\\!10^{-4}$"), ("frozen70m", "frozen 70M")):
+    for key, label in (("frozen14m", "frozen 14M"), ("online14m", "14M dyn.\\ eval., lr $10^{-4}$"), ("frozen31m", "frozen 31M"),
+                       ("online31m", "31M dyn.\\ eval., lr $3\\!\\times\\!10^{-4}$"), ("frozen70m", "frozen 70M")):
         r = res[key]
         rows.append([label, "%.3f" % float(r["loss"]), pm(r["gain_over_frozen14m"], r["se"]) if key != "frozen14m" else "",
                      "%.0f\\%%" % (100 * float(r["gap31_closed"])) if key != "frozen14m" else ""])

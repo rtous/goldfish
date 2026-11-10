@@ -56,8 +56,8 @@ def distance_and_position():
     pos = read("e1_locality/position.csv")
     fig, (a, b) = plt.subplots(1, 2, figsize=(7.0, 2.6), gridspec_kw={"width_ratios": [1.35, 1]})
     x = np.arange(len(BINS))
-    for key, label, color, ls in (("gain_in_order", "online, in order", BLUE, "-"),
-                                  ("gain_shuffled", "online, chunks shuffled", BLUE, "--"),
+    for key, label, color, ls in (("gain_in_order", "dyn. eval., in order", BLUE, "-"),
+                                  ("gain_shuffled", "dyn. eval., chunks shuffled", BLUE, "--"),
                                   ("gain_unigram", "unigram cache (frozen model)", INK, ":")):
         a.plot(x, [float(rows[k][key]) for k in BINS], color=color, ls=ls, lw=1.6, marker="o", ms=3, label=label)
     zero(a)
@@ -73,7 +73,7 @@ def distance_and_position():
     zero(b)
     b.set_xlim(0, len(pos))
     b.set_xlabel("position in the book (thousands of tokens)")
-    b.set_title("(b) by position in the book (online)", fontsize=8, loc="left", color=INK)
+    b.set_title("(b) by position in the book (dyn. eval.)", fontsize=8, loc="left", color=INK)
     b.legend(loc="lower right")
     fig.tight_layout()
     save(fig, "distance_position")
@@ -232,9 +232,9 @@ def very_long():
     xs = np.arange(len(pos)) * 10 + 5
     fig, ax = plt.subplots(figsize=(7.0, 2.8))
     for key, label, color, ls, band in (("frozen14m", "frozen 14M", INK, "-", False),
-                                        ("online14m", "14M online, lr 1e-4", BLUE, "-", True),
+                                        ("online14m", "14M dyn. eval., lr 1e-4", BLUE, "-", True),
                                         ("frozen31m", "frozen 31M", INK, "--", False),
-                                        ("online31m", "31M online, lr 3e-4", AQUA, "-", True),
+                                        ("online31m", "31M dyn. eval., lr 3e-4", AQUA, "-", True),
                                         ("frozen70m", "frozen 70M", INK, ":", False)):
         y = np.array([float(r[key]) for r in pos])
         if band:

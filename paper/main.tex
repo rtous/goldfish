@@ -37,12 +37,16 @@ Dynamic evaluation and test-time training let a language model keep learning fro
 
 \section{Introduction}
 
-Dynamic evaluation \cite{krause2018dynamic,krause2019dynamic,rannentriki2024revisiting} and test-time training \cite{feng2026inplace,bansal2026lets,tandon2025endtoend} let a language model keep learning from the text it reads at inference time, adapting its weights to the current input distribution and thus predicting what follows better than a frozen model. The cost is forgetting: each update can overwrite earlier knowledge, the catastrophic interference of sequential training \cite{mccloskey1989catastrophic}, and this is usually treated as a problem.
+Language models store in their parameters a vast amount of knowledge, most of which is irrelevant to any particular input they process.
+Small models are cheaper to run and can be deployed on memory-constrained devices, but their limited capacity restricts how much knowledge and context they can retain. % TODO: citation for small / on-device models
+Yet what a model reads at inference time has temporal locality, i.e.\ recently seen content is likely to be seen again: a book keeps its characters, places and turns of phrase for hundreds of thousands of tokens, and so do a long conversation or a code base, far longer than an attention window lasts.
+Computer memory hierarchies exploit this property with a small cache that holds recently used data and lets older data be pushed out, allowing a small memory to serve a workload as though it were a large one \cite{denning1968working}.
+By analogy, a small model whose parameters cached its current context, instead of permanently holding everything it might ever need, could perform on that context comparably to a larger model.
 
-However, what a model reads at inference time often has temporal locality: a book keeps its characters, places and turns of phrase for hundreds of thousands of tokens, and so do a long conversation or a code base, far longer than an attention window lasts.
-Computer memory hierarchies exploit this property with a small cache that holds recently used data and lets older data be pushed out \cite{denning1968working}.
-A transformer has such a cache in its attention window, but the window is short and everything before it is lost.
-In a small model, with little room in its weights, locality and a forgetting that favours recent content could together give the behaviour of a cache memory: the weights would hold the recent context beyond the window, and new material would push out old material.
+A transformer already has such a cache in its attention window, but the window is short and everything before it is lost.
+Dynamic evaluation \cite{krause2018dynamic,krause2019dynamic,rannentriki2024revisiting} and test-time training \cite{feng2026inplace,bansal2026lets,tandon2025endtoend} let a language model keep learning from the text it reads at inference time, adapting its weights to the current input distribution and thus predicting what follows better than a frozen model.
+The cost is forgetting: each update can overwrite earlier knowledge, the catastrophic interference of sequential training \cite{mccloskey1989catastrophic}, and this is usually treated as a problem.
+In a small model, with little room in its weights, locality and a forgetting that spares recent content could together give the behaviour of a cache memory: the weights would hold the recent context beyond the window, and new material would push out old material.
 
 We ask whether this cache behaviour arises on its own in a standard transformer that takes plain gradient steps as it reads.
 If it does, three things should be true.
@@ -50,11 +54,13 @@ The benefit should depend on \emph{locality}: it should be larger when the input
 New material should push out old material, which we call \emph{eviction}; this is the useful side of forgetting.
 And the cache should leave the knowledge the model already had largely intact; we call the loss of that general knowledge, the harmful side, simply \emph{forgetting} from now on.
 
-We test this with small Pythia models \cite{biderman2023pythia} reading PG-19 books \cite{rae2020compressive}. We split the books into chunks of 256 tokens and score each one on its own, without the previous chunks in the context, so anything that helps from further back must come through the weights. After scoring a chunk, the model takes one update step on it.
+We test this with small Pythia models \cite{biderman2023pythia} reading PG-19 books \cite{rae2020compressive}.
+We split the books into chunks of 256 tokens and score each one on its own, without the previous chunks in the context, so anything that helps from further back must come through the weights.
+After scoring a chunk, the model takes one update step on it.
 We compare reading the chunks in order with reading them shuffled, which removes their locality.
-We ask whether dynamic evaluation helps more when the input has locality than when it is shuffled, whether it evicts old content like a cache, what it costs in general knowledge, where in the network the memory lives and whether a knob sets its size, and whether it matters more in small models or can replace a larger one.
+Beyond the three predictions above, we study where in the network the memory lives, whether a knob sets its size, and whether it matters more in small models or can replace a larger one.
 
-Contributions, one per group of findings:
+Our contributions are as follows.
 \begin{itemize}
 \item We measure the reach of the memory and its dependence on input locality, and compare it with a token-count cache (Sections~\ref{sec:local} and~\ref{sec:levels}).
 \item We locate where in the network the memory is stored (Section~\ref{sec:where}).
@@ -63,74 +69,82 @@ Contributions, one per group of findings:
 \item We assess what dynamic evaluation is worth against a larger frozen model on long books (Section~\ref{sec:long}).
 \end{itemize}
 
+The long-term objective of this line of work is to determine whether such a cache can reduce the model size required for a given level of performance.
+The present study is a first step towards that objective, examining whether cache behaviour emerges in a standard transformer under dynamic evaluation and at what cost to general knowledge.
+
+
 \section{Related work}
 
-\paragraph{Dynamic evaluation.}
-Krause et al.\ \cite{krause2018dynamic,krause2019dynamic} adapt a language model to the sequence it predicts with gradient steps at test time; Rannen-Triki et al.\ \cite{rannentriki2024revisiting} revisit this for larger models and describe it as memory in the weights.
-We use the same protocol (score, then update) and ask what the updated weights remember, for how long, where, and at what cost.
+Once a word has occurred in a document, the probability that it occurs again is much higher than its corpus frequency would predict \cite{church2000empirical}.
+Cache language models exploit this by interpolating the model's prediction with a distribution estimated from the recent history \cite{kuhn1990cache,jelinek1991dynamic}, a term borrowed from the memory hierarchies of computer architecture \cite{denning1968working}.
+Neural variants store recent hidden states instead of word counts \cite{grave2017improving,khandelwal2020generalization}, and several transformer architectures extend the attention window with recurrent, compressed or external memories \cite{dai2019transformerxl,rae2020compressive,wu2022memorizing,bulatov2022recurrent}.
+In all of these approaches the past is represented in activations, while the parameters remain fixed.
 
-\paragraph{Cache language models.}
-Recent words \cite{kuhn1990cache} or recent hidden states \cite{grave2017improving} can be mixed into a model's prediction; our unigram cache is the simplest such baseline.
+Dynamic evaluation instead stores information about the past in the parameters, adapting the model by gradient descent on the portion of the sequence already observed.
+It was first applied to recurrent language models \cite{mikolov2010recurrent,graves2013generating}, studied systematically by Krause et al.\ \cite{krause2018dynamic,krause2019dynamic}, and revisited for larger models by Rannen-Triki et al.\ \cite{rannentriki2024revisiting}, who interpret it as a form of memory in the weights complementary to the context window.
+Test-time training more generally adapts a model to each test instance through a self-supervised objective \cite{sun2020test}, and has inspired sequence layers and memory modules that learn as they read \cite{sun2024learning,behrouz2024titans}.
+For transformer language models, recent methods differ mainly in which parameters they update: the output projections of the MLP blocks \cite{feng2026inplace}, the query projections of attention \cite{bansal2026lets}, or the MLP weights of a model meta-trained for test-time adaptation \cite{tandon2025endtoend}.
+These methods descend from fast weights, rapidly changing parameters that provide short-term memory on top of slow ones \cite{hinton1987using,schmidhuber1992learning,ba2016using,clark2022meta}.
+This literature has mostly evaluated such adaptation by the reduction in loss it achieves; what the adapted weights retain, and for how long, has received comparatively less attention.
 
-\paragraph{Test-time training.}
-Test-time training adapts a model to each test input with a self-supervised loss \cite{sun2020test}.
-For language models, In-Place TTT \cite{feng2026inplace} updates the final projection of the MLP blocks, qTTT \cite{bansal2026lets} the query projections, and TTT-E2E \cite{tandon2025endtoend} meta-learns a model for test-time training.
-That the MLPs hold most of the memory agrees with In-Place TTT's choice and with feed-forward layers as key-value memories \cite{geva2021transformer}.
+When a single set of parameters serves both short-term and long-term memory, new learning can interfere with existing knowledge.
+This catastrophic interference was first documented in connectionist networks trained sequentially \cite{mccloskey1989catastrophic,french1999catastrophic}, and has motivated methods that protect the parameters most relevant to earlier tasks \cite{kirkpatrick2017overcoming}.
+Large language models lose general capabilities during continual fine-tuning \cite{luo2023empirical}, and even during pretraining the factual knowledge acquired from an example decays as a power law of subsequent training steps \cite{chang2024how}.
+How much is overwritten depends on where knowledge is stored, and in transformers much of it appears to reside in the feed-forward layers \cite{geva2021transformer,meng2022locating}.
+Forgetting need not be only a cost, however: in human memory it has been argued to reflect the decreasing probability that an item will be needed again \cite{anderson1991reflections}.
 
-\paragraph{Fast weights.}
-Fast weights hold short-term memory on top of slow weights \cite{hinton1987using,schmidhuber1992learning,ba2016using,schlag2021linear}; we do not test a separate fast part here (Section~\ref{sec:future}).
+The present work lies at the intersection of these lines of research.
+It considers dynamic evaluation in its simplest form, plain gradient steps on a standard transformer without any additional memory module, and examines it from the perspective of a cache: whether the information held in the weights depends on the temporal locality of the input, how it is displaced by subsequent text, where it resides, and how it interacts with general knowledge.
+In this view, forgetting plays a dual role, both as the cost studied in continual learning and as the eviction mechanism that any cache requires.
 
 \section{Setup}\label{sec:setup}
 
-\paragraph{Models.}
-Pythia-14M, 31M and 70M \cite{biderman2023pythia} (14.07M, 30.49M and 70.43M parameters, 6 layers each, same tokenizer), in float32 on CPU, seed 0.
+\subsection{Models and data}
 
-\paragraph{Data.}
+We use Pythia-14M, 31M and 70M \cite{biderman2023pythia}, with 14.07M, 30.49M and 70.43M parameters respectively; all three have 6 layers and share the same tokenizer, and all runs use float32 on CPU with seed 0.
+
 All books are from PG-19 \cite{rae2020compressive}.
-The \emph{main set} is 25 test books, each cut into 78 chunks of 256 tokens (its first 19{,}968 tokens).
-The \emph{long set} is 5 test books of 100k tokens (390 chunks each), and the \emph{very long set} is 4 test books of 200k tokens (781 chunks each); all 5 long books and 2 of the 4 very long books are also in the main set, cut there to their first 78 chunks.
-Learning rates are picked on \emph{val-pick}, 10 PG-19 validation books of 78 chunks each.
-Two held-out sets are never trained on: 76 chunks of WikiText-103's test split \cite{merity2017pointer}, detokenized, and 6 other validation books of 15 chunks each.
-Pythia was trained on the Pile \cite{gao2020pile}, whose PG-19 component has 28{,}602 documents \cite{biderman2022datasheet}, the size of PG-19's training split; the test books are therefore very likely not in Pythia's training data, although the authors do not say so and other copies of the books were not checked.
+The \emph{main set} consists of 25 test books, each cut into 78 chunks of 256 tokens (its first 19{,}968 tokens).
+For longer streams, the \emph{long set} has 5 test books of 100k tokens (390 chunks each) and the \emph{very long set} 4 test books of 200k tokens (781 chunks each); all 5 long books and 2 of the 4 very long books also appear in the main set, cut there to their first 78 chunks.
+Learning rates are selected on a separate set, \emph{val-pick}, of 10 PG-19 validation books of 78 chunks each.
+To measure forgetting we use two held-out sets that are never trained on: 76 chunks of the detokenized WikiText-103 test split \cite{merity2017pointer}, outside the domain, and 6 other PG-19 validation books of 15 chunks each, inside it.
+Pythia was trained on the Pile \cite{gao2020pile}, whose PG-19 component has 28{,}602 documents \cite{biderman2022datasheet}, the size of PG-19's training split.
+The test books are therefore very likely absent from Pythia's training data, although the Pile's authors do not state this explicitly and we did not check for other copies of the books.
 
-\paragraph{Protocol.}
-Each chunk is scored on its own, without earlier chunks in the context.
-With dynamic evaluation, after scoring a chunk the model takes one update step on the chunk's mean loss, so every token is predicted before it is trained on.
-We call the updated model the \emph{learner}; the frozen model reads the same chunks without updates.
+\subsection{Dynamic evaluation}
 
-\paragraph{Update rules and parameter subsets.}
-\emph{Plain SGD} uses no momentum or weight decay.
-\emph{Adam} \cite{kingma2015adam} updates all parameters with a fresh state at the start of each stream.
-\emph{Normalized SGD} moves every tensor by the same relative amount per step, $W \leftarrow W - \eta\, \lVert W\rVert\, g / \lVert g\rVert$.
-With plain SGD, some runs update only part of Pythia-14M: the output embedding, everything but the output embedding, the MLPs of all layers, the attention of all layers, or one layer's MLP.
+Each chunk is scored on its own, without earlier chunks in the context, so any benefit from earlier text must come through the weights.
+After scoring a chunk, the model takes one update step on the chunk's mean loss; every token is therefore predicted before it is trained on.
+We call the updated model the \emph{learner}, and compare it with the frozen pretrained model reading the same chunks without updates.
 
-\paragraph{Stream orders.}
-The main set's chunks are read in four orders: book after book ($K=1$), 5 books interleaved chunk by chunk ($K=5$), all 25 interleaved ($K=25$), and one random order (shuffled).
-The long and very long sets are read book after book.
+We compare three update rules.
+\emph{Plain SGD} uses no momentum or weight decay; \emph{Adam} \cite{kingma2015adam} starts each stream with a fresh optimizer state; and \emph{normalized SGD} moves every tensor by the same relative amount per step, $W \leftarrow W - \eta\, \lVert W\rVert\, g / \lVert g\rVert$.
+All three update all parameters.
+In addition, some plain-SGD runs on Pythia-14M update only part of the model: the output embedding, everything but the output embedding, the MLPs of all layers, the attention of all layers, or the MLP of a single layer.
+Each combination of update rule, parameter subset and model size has its own learning rate, chosen as the value with the lowest mean loss under dynamic evaluation on val-pick from a grid of $1$ and $3$ times powers of ten.
+The grid is extended until both neighbours of the best value have been tried, so every selected rate lies inside its grid.
 
-\paragraph{Snapshot probes.}
-To see what the weights hold at a given point, we copy them and score other text with the copy frozen, while the learner continues.
-Snapshots are taken every 40 chunks and scored on the held-out sets.
-For eviction (Section~\ref{sec:eviction}), each of 20 main books A is split into a first half A1 (40 chunks) and a second half A2 (38 chunks); the learner reads A1, then $I$ tokens of PG-19 validation books, and a snapshot scores A2 and the same span C2 of a control book C that it never read.
+To vary locality, the chunks of the main set are read in four orders: book after book ($K=1$), 5 books interleaved chunk by chunk ($K=5$), all 25 books interleaved ($K=25$), and a random order (shuffled).
+The long and very long sets are always read book after book.
 
-\paragraph{Learning rates.}
-Each learning rate is the value with the lowest mean loss under dynamic evaluation on val-pick, from a grid of $1$ and $3$ times powers of ten.
-The grid is extended until both neighbours of the best value have been tried, so every pick lies inside its grid.
-Each parameter subset, update rule and size has its own pick.
+To see what the weights hold at a given point, we take \emph{snapshots}: the learner's weights are copied and the copy, kept frozen, scores other text while the learner continues.
+For forgetting, snapshots are taken every 40 chunks and scored on the held-out sets.
+For eviction (Section~\ref{sec:eviction}), each of 20 main-set books A is split into a first half A1 (40 chunks) and a second half A2 (38 chunks).
+The learner reads A1 followed by $I$ tokens of PG-19 validation books, and a snapshot then scores A2 and the same span C2 of a control book C that the learner never read.
 
-\paragraph{Metrics.}
-The \emph{gain} measures how much dynamic evaluation helps: the frozen loss minus the loss under dynamic evaluation on the same tokens, in nats/token, against each model's own frozen loss.
-\emph{Distance bins} sort tokens by how far back the same token id last occurred: in the same chunk (visible to attention), in an earlier chunk less than 1k, 1k to 10k, 10k to 100k or at least 100k tokens back, or never; the 1000 most frequent ids are left out of the earlier-chunk bins.
-Earlier-chunk bins are split by whether that occurrence was in the same book or an earlier one.
-\emph{Locality} measures how much of the gain needs the order of the text: the gain in reading order minus the gain on the same chunks shuffled.
-The \emph{memory of A} measures what the snapshot still knows about book A beyond general adaptation: its gain on A2 minus its gain on C2.
-\emph{Forgetting} measures lost general knowledge: a snapshot's loss on a held-out set minus the pretrained model's, averaged over the snapshots in the second half of the stream (positive means knowledge lost).
-The \emph{exchange rate} measures what a run gains per unit of knowledge it loses: its gain on the stream divided by its WikiText forgetting.
+\subsection{Metrics}
 
-\paragraph{Error bars.}
-Means are over tokens.
-Standard errors (SE) are over books, from per-book means or, when two runs read the same chunks, from paired per-book differences; books with fewer than 50 tokens in a bin are left out.
-For forgetting, SE are over the WikiText chunks or the 6 held-out books.
+The \emph{gain} measures how much dynamic evaluation helps: the frozen loss minus the loss under dynamic evaluation on the same tokens, in nats/token, always against the model's own frozen loss.
+To see where the gain comes from, \emph{distance bins} group tokens by how far back the same token id last occurred: in the same chunk (visible to attention), in an earlier chunk less than 1k, 1k to 10k, 10k to 100k or at least 100k tokens back, or never.
+The 1000 most frequent ids are left out of the earlier-chunk bins, which are further split by whether the previous occurrence was in the same book or an earlier one.
+\emph{Locality} is the part of the gain that requires the order of the text: the gain in reading order minus the gain on the same chunks shuffled.
+In the eviction experiment, the \emph{memory of A} is what a snapshot still knows about book A beyond general adaptation: its gain on A2 minus its gain on C2.
+\emph{Forgetting} is the loss of general knowledge: a snapshot's loss on a held-out set minus that of the pretrained model, averaged over the snapshots in the second half of the stream, so that positive values mean knowledge lost.
+Finally, the \emph{exchange rate} relates the two: a run's gain on the stream divided by its WikiText forgetting.
+
+Means are taken over tokens.
+Standard errors (SE) are computed over books, from per-book means or, when two runs read the same chunks, from paired per-book differences; books with fewer than 50 tokens in a bin are left out.
+For forgetting, SE are computed over the WikiText chunks or the 6 held-out books.
 A $\dagger$ marks a value under 2 SE, which we do not treat as a difference.
 
 \section{Results}
@@ -393,11 +407,23 @@ Eviction is fast at first and slow later, closer to a power law than to an expon
 
 \section{Conclusion}
 
-A small language model that takes one update step on each chunk it reads gains a memory of its current context beyond its attention window.
-The memory behaves like a cache in three ways: it depends on the order of the input (\shuffledShareOneK{} of the gain less than 1k tokens back survives shuffling), it is tied to the current book, and other books evict it, halving it after about \evictHalfLife{} tokens.
-It differs from a cache in where it is stored: it shares weights with general knowledge, and filling it costs knowledge outside the domain, about \wikiOverGainKOne{} nats of WikiText loss per nat gained.
-Which weights are updated and which update rule is used change how much cache a model gets, but within 14M and 31M not the trade-off between cache and forgetting.
-Between 14M and 31M, size does not change this picture, and on long books dynamic evaluation closes \gapClosedFourteen{} of the gap to the larger model without replacing it.
+Small language models are cheaper to run and easier to deploy, but their limited capacity restricts how much knowledge and context they can retain.
+We started from the observation that what a model reads has temporal locality, so that a small model whose weights cached its current context, instead of permanently holding everything it might need, could perform on that context closer to a larger one.
+Dynamic evaluation is a natural candidate for such a cache, provided that its forgetting, usually seen as the price of learning at inference time, acts as eviction: a model that forgets old material as it learns new material might hold the recent context in its weights beyond the attention window.
+We asked whether this behaviour arises on its own in a small transformer that takes plain gradient steps as it reads, and tested the three properties a cache should have.
+
+The first two hold.
+The benefit of dynamic evaluation depends on locality: most of the gain on tokens last seen in an earlier chunk requires the text to be read in order (only \shuffledShareOneK{} of the gain less than 1k tokens back survives shuffling), the memory is tied to the book being read, and the gain shrinks steadily as books are interleaved.
+Other text evicts this memory, halving it after about \evictHalfLife{} tokens of other books, with a long tail.
+The memory sits mostly in the MLPs.
+
+The third property holds only in part.
+Knowledge of the same domain is largely preserved, but the cache shares its weights with general knowledge, and filling it costs knowledge outside the domain: about \wikiOverGainKOne{} nats of WikiText loss per nat gained.
+The update rule and the set of weights being updated change how much cache a model gets, but within 14M and 31M every setting we tried moved cache and forgetting together.
+
+A standard transformer thus has a cache in its weights, but not a clean one: the useful forgetting that evicts old context comes bundled with the harmful forgetting of general knowledge.
+Even so, the cache already matters at this scale: on long books, a 14M-parameter model with dynamic evaluation closes \gapClosedFourteen{} of the gap to a frozen model about twice its size, and the cache behaves in the same way at both sizes.
+Separating useful from harmful forgetting, for instance with a dedicated fast part of the network, could strengthen the cache and make better use of temporal locality, moving towards small models that perform on the context at hand like larger ones.
 
 {\small
 \setlength{\bibsep}{1.5pt plus 0.5pt}

@@ -141,18 +141,24 @@ Cutting the books short keeps the stream at about 500k tokens while leaving 25 b
 Most results use the main streams, read in order and shuffled; the interleaved orders appear in Section~\ref{sec:levels}.
 
 \paragraph{Long streams: reading further into a book.}
-A main-set book ends after 20k tokens, so the main streams cannot show how the gain develops deep into a book.
-The \emph{long} stream holds 5 test books of 100k tokens (390 chunks each) and the \emph{very long} stream 4 test books of 200k tokens (781 chunks each), both read book after book.
-The long stream extends the locality comparison to longer books (Section~\ref{sec:levels}); the very long stream compares dynamic evaluation with a larger frozen model over a whole long book (Section~\ref{sec:long}) and tracks forgetting over the longest stream (Section~\ref{sec:forgetting}).
-They hold fewer books than the main set, so their standard errors are wider.
+If the weights act as a cache of the current context, the gain should grow the longer the input stays on the same material.
+The main streams can test this only in one direction: their most local order, book after book, still changes book every 20k tokens, and the other orders lower locality further by interleaving books.
+The \emph{long} stream tests the other direction.
+It holds 5 test books of 100k tokens (390 chunks each), read book after book, so that the input stays on the same book five times longer and most tokens are read with tens of thousands of tokens of the same book already behind them; it forms the most local step of the comparison in Section~\ref{sec:levels}.
+The \emph{very long} stream, 4 test books of 200k tokens (781 chunks each), also read book after book, compares dynamic evaluation with a larger frozen model over a whole long book (Section~\ref{sec:long}) and tracks forgetting over the longest stream (Section~\ref{sec:forgetting}).
+Both hold fewer books than the main set, so their standard errors are wider.
 All 5 long books and 2 of the 4 very long books also appear in the main set, cut there to their first 78 chunks.
 
 \paragraph{The val-pick stream: tuning without the test books.}
-Every learning rate is chosen before any test book is read, on a stream of its own, \emph{val-pick}: 10 PG-19 validation books of 78 chunks each, read book after book.
-No reported result uses val-pick, and no learning rate is chosen on a test book.
+The learning rate has a different scale under each update rule, and the step a learner tolerates also depends on which parameters are updated and on model size, so each combination of rule, subset and size requires its own rate.
+To avoid selecting rates on the evaluation data, all rates are selected on a separate stream, \emph{val-pick}: 10 PG-19 validation books of 78 chunks each, read book after book, matching the main set in book length and reading order.
+No reported result uses val-pick.
 
 \paragraph{Eviction streams: one book, then other text.}
-To measure how fast other text displaces the memory of a book, the eviction experiment gives each of 20 main-set books its own short stream: the first half of the book followed by a varying amount of other books (Section~\ref{sec:snapshots}).
+A cache must also let go of old content as new content arrives.
+The main streams cannot measure this directly, because a book is never read again after the stream moves on, and the amount of other text read in between is not controlled.
+The eviction experiment therefore gives each of 20 main-set books its own short stream: the first half of the book, followed by a controlled amount of other books.
+At the end of each stream, a frozen copy of the learner is tested on the unread second half of the book, which shows how much of the book's memory survives that amount of other text (Section~\ref{sec:snapshots}).
 
 \begin{table}[t]
 \centering\footnotesize\setlength{\tabcolsep}{3.5pt}
@@ -172,10 +178,12 @@ eviction (one per book) & half a test book, then others & varies & book first & 
 \end{table}
 
 \paragraph{Held-out text.}
-Not all text is read as a stream.
-To measure forgetting we use two held-out sets that are never part of any stream and are therefore never trained on: 76 chunks of the detokenized WikiText-103 test split \cite{merity2017pointer}, outside the domain, and 6 other PG-19 validation books of 15 chunks each, inside it.
-They are only scored, by frozen copies of the learner (Section~\ref{sec:snapshots}).
+Updating the weights may also erase general knowledge the model had before reading the stream.
+The streams cannot measure this, since every chunk in them is trained on after it is scored.
+We therefore use two held-out sets that are never part of any stream and are never trained on: 76 chunks of the detokenized WikiText-103 test split \cite{merity2017pointer}, outside the domain, and 6 other PG-19 validation books of 15 chunks each, inside it.
+They are only scored, by frozen copies of the learner (Section~\ref{sec:snapshots}), so that losses on them measure knowledge lost, both of text unlike the books and of books like those being read.
 
+A gain on the test books could also come from text the model saw during pretraining rather than from the stream.
 Pythia was trained on the Pile \cite{gao2020pile}, whose PG-19 component has 28{,}602 documents \cite{biderman2022datasheet}, the size of PG-19's training split.
 The test books are therefore very likely absent from Pythia's training data, although the Pile's authors do not state this explicitly and we did not check for other copies of the books.
 

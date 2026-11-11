@@ -26,7 +26,7 @@ BINS = ["same chunk", "earlier chunk, < 1k", "earlier chunk, 1k-10k", "earlier c
 plt.rcParams.update({"font.size": 8, "axes.edgecolor": MUTED, "axes.labelcolor": INK, "xtick.color": MUTED,
                      "ytick.color": MUTED, "axes.spines.top": False, "axes.spines.right": False, "axes.grid": True,
                      "axes.grid.axis": "y", "grid.color": GRID, "grid.linewidth": 0.8, "axes.axisbelow": True,
-                     "legend.frameon": False, "legend.fontsize": 7, "pdf.fonttype": 42})
+                     "legend.frameon": False, "legend.fontsize": 7, "legend.handlelength": 4.0, "pdf.fonttype": 42})
 
 
 def read(path):

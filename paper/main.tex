@@ -75,69 +75,138 @@ The present study is a first step towards that objective, examining whether cach
 
 \section{Related work}
 
-Once a word has occurred in a document, the probability that it occurs again is much higher than its corpus frequency would predict \cite{church2000empirical}.
-Cache language models exploit this by interpolating the model's prediction with a distribution estimated from the recent history \cite{kuhn1990cache,jelinek1991dynamic}, a term borrowed from the memory hierarchies of computer architecture \cite{denning1968working}.
+This work builds on \emph{temporal locality}, the tendency of recently observed content to recur, and on the possibility that a small model could exploit it by caching its current context in its weights through online learning.
+Temporal locality is a property of the input; exploiting it requires a recency bias in the model, which here resides in the weights rather than, as usually studied in language models, in the context window \cite{zhao2021calibrate}.
+We review four related lines of research from this perspective.
+
+\paragraph{Cache language models.}
+Memory hierarchies exploit temporal locality with a small cache that retains recently used data, allowing a small memory to serve a workload almost as well as a large one \cite{denning1968working}.
+Text exhibits the same property: a word that has occurred in a document is far more likely to recur than its corpus frequency predicts \cite{church2000empirical}, and source code is similarly repetitive within a file or module \cite{tu2014localness}.
+Cache language models exploit this by interpolating the model's prediction with a distribution estimated from the recent history \cite{kuhn1990cache,jelinek1991dynamic}.
 Neural variants store recent hidden states instead of word counts \cite{grave2017improving,khandelwal2020generalization}, and several transformer architectures extend the attention window with recurrent, compressed or external memories \cite{dai2019transformerxl,rae2020compressive,wu2022memorizing,bulatov2022recurrent}.
-In all of these approaches the past is represented in activations, while the parameters remain fixed.
+In all of these the past is held in activations or in a separate store, and the parameters remain fixed.
+We instead restrict the context so that the past can only be held in the parameters, and ask whether they behave as a cache; a token-count cache serves as a baseline (Section~\ref{sec:local}).
 
-Dynamic evaluation instead stores information about the past in the parameters, adapting the model by gradient descent on the portion of the sequence already observed.
-It was first applied to recurrent language models \cite{mikolov2010recurrent,graves2013generating}, studied systematically by Krause et al.\ \cite{krause2018dynamic,krause2019dynamic}, and revisited for larger models by Rannen-Triki et al.\ \cite{rannentriki2024revisiting}, who interpret it as a form of memory in the weights complementary to the context window.
-Test-time training more generally adapts a model to each test instance through a self-supervised objective \cite{sun2020test}, and has inspired sequence layers and memory modules that learn as they read \cite{sun2024learning,behrouz2024titans}.
-For transformer language models, recent methods differ mainly in which parameters they update: the output projections of the MLP blocks \cite{feng2026inplace}, the query projections of attention \cite{bansal2026lets}, or the MLP weights of a model meta-trained for test-time adaptation \cite{tandon2025endtoend}.
-These methods descend from fast weights, rapidly changing parameters that provide short-term memory on top of slow ones \cite{hinton1987using,schmidhuber1992learning,ba2016using,clark2022meta}.
-This literature has mostly evaluated such adaptation by the reduction in loss it achieves; what the adapted weights retain, and for how long, has received comparatively less attention.
+\paragraph{Dynamic evaluation.}
+Dynamic evaluation applies online learning to a trained model during evaluation: the parameters are updated by gradient descent on the portion of the sequence already observed, so that each token is predicted before it is trained on.
+It was first applied to recurrent language models \cite{mikolov2010recurrent,graves2013generating} and studied systematically by Krause et al.\ \cite{krause2018dynamic,krause2019dynamic}, who motivate it by the recurrence of patterns within a sequence and favour recent history through a decay towards the trained weights.
+Rannen-Triki et al.\ \cite{rannentriki2024revisiting} interpret it as a memory in the weights complementary to the context window, reset the weights at book boundaries, and show that under distribution shift a smaller model or context with online learning can offer a better trade-off between compute and loss than a larger static model.
+That dynamic evaluation benefits from temporal locality is thus the premise of this literature.
+Our contribution is to quantify it, comparing the same text in order and shuffled and decomposing the gain by the distance and book of each token's previous occurrence (Sections~\ref{sec:local} and~\ref{sec:levels}).
+We use neither decay nor resets, so that eviction can be measured directly (Section~\ref{sec:eviction}), and we compare against model size rather than compute (Section~\ref{sec:long}).
 
-When a single set of parameters serves both short-term and long-term memory, new learning can interfere with existing knowledge.
-This catastrophic interference was first documented in connectionist networks trained sequentially \cite{mccloskey1989catastrophic,french1999catastrophic}, and has motivated methods that protect the parameters most relevant to earlier tasks \cite{kirkpatrick2017overcoming}.
-Large language models lose general capabilities during continual fine-tuning \cite{luo2023empirical}, and even during pretraining the factual knowledge acquired from an example decays as a power law of subsequent training steps \cite{chang2024how}.
-How much is overwritten depends on where knowledge is stored, and in transformers much of it appears to reside in the feed-forward layers \cite{geva2021transformer,meng2022locating}.
-Forgetting need not be only a cost, however: in human memory it has been argued to reflect the decreasing probability that an item will be needed again \cite{anderson1991reflections}.
+\paragraph{Test-time training and fast weights.}
+Test-time training adapts a model to each test instance through a self-supervised objective \cite{sun2020test} and has inspired sequence layers and memory modules that learn as they read \cite{sun2024learning,behrouz2024titans}.
+Recent methods for transformer language models differ mainly in the parameters they update: the output projections of the MLP blocks \cite{feng2026inplace}, the query projections of attention \cite{bansal2026lets}, or the MLP weights of a model meta-trained for test-time adaptation \cite{tandon2025endtoend}.
+They descend from fast weights, rapidly changing parameters that provide short-term memory on top of slow ones \cite{hinton1987using,schmidhuber1992learning,ba2016using,clark2022meta}.
+These methods mostly target long contexts, fix by design which parameters adapt and how quickly the memory fades, and are evaluated by the reduction in loss.
+We study instead an unmodified pretrained model under plain gradient steps, and ask where the memory forms (Section~\ref{sec:where}), how the update rule and model size shape it (Section~\ref{sec:rules}), and how long it persists, with a view to techniques that exploit temporal locality in small models.
 
-The present work lies at the intersection of these lines of research.
-It considers dynamic evaluation in its simplest form, plain gradient steps on a standard transformer without any additional memory module, and examines it from the perspective of a cache: whether the information held in the weights depends on the temporal locality of the input, how it is displaced by subsequent text, where it resides, and how it interacts with general knowledge.
-In this view, forgetting plays a dual role, both as the cost studied in continual learning and as the eviction mechanism that any cache requires.
+\paragraph{Forgetting.}
+When one set of parameters serves both short- and long-term memory, new learning interferes with existing knowledge.
+This catastrophic interference was first documented in connectionist networks trained sequentially \cite{mccloskey1989catastrophic,french1999catastrophic} and has motivated methods that protect the parameters most relevant to earlier tasks \cite{kirkpatrick2017overcoming}.
+Large language models lose general capabilities during continual fine-tuning \cite{luo2023empirical}, models updated by dynamic evaluation degrade on older text \cite{lazaridou2021mind}, and knowledge acquired during pretraining decays as a power law of subsequent training steps \cite{chang2024how}.
+Much of this knowledge appears to reside in the feed-forward layers \cite{geva2021transformer,meng2022locating}.
+Forgetting may also be adaptive, reflecting the decreasing probability that an item will be needed again \cite{anderson1991reflections}; a cache relies on the same assumption, and its limited capacity can follow a changing context only by evicting what is no longer in use.
+We therefore measure both the eviction of a book's memory and the loss of general knowledge in the same runs (Sections~\ref{sec:eviction}, \ref{sec:forgetting} and~\ref{sec:tradeoff}).
 
 \section{Setup}\label{sec:setup}
 
-\subsection{Models and data}
+Every experiment in this paper has the same structure.
+A model reads an \emph{input stream}: a single, ordered sequence of text that it reads once, from beginning to end, in consecutive chunks of 256 tokens, as a language model reads text during inference.
+Attention covers only the current chunk, so whatever the model can use from earlier parts of the stream must be carried in its weights.
+Under dynamic evaluation the model updates those weights as it reads; the frozen pretrained model reading the same stream without updates is the reference.
+The experiments differ in the streams they use, which vary in length and in how often their content recurs, and in what is measured on the updated weights along the way.
+We first describe the streams and why each is needed, then how the learner reads them and what we measure.
+
+\subsection{Models}
 
 We use Pythia-14M, 31M and 70M \cite{biderman2023pythia}, with 14.07M, 30.49M and 70.43M parameters respectively; all three have 6 layers and share the same tokenizer, and all runs use float32 on CPU with seed 0.
 
-All books are from PG-19 \cite{rae2020compressive}.
-The \emph{main set} consists of 25 test books, each cut into 78 chunks of 256 tokens (its first 19{,}968 tokens).
-For longer streams, the \emph{long set} has 5 test books of 100k tokens (390 chunks each) and the \emph{very long set} 4 test books of 200k tokens (781 chunks each); all 5 long books and 2 of the 4 very long books also appear in the main set, cut there to their first 78 chunks.
-Learning rates are selected on a separate set, \emph{val-pick}, of 10 PG-19 validation books of 78 chunks each.
-To measure forgetting we use two held-out sets that are never trained on: 76 chunks of the detokenized WikiText-103 test split \cite{merity2017pointer}, outside the domain, and 6 other PG-19 validation books of 15 chunks each, inside it.
+\subsection{Input streams}
+
+All streams are built from books of PG-19 \cite{rae2020compressive}.
+Each book is tokenized on its own and cut into non-overlapping chunks of 256 tokens, the remainder dropped, so that no chunk spans two books.
+A stream is a set of such chunks placed in a fixed reading order.
+It is read without interruption: the learner starts from the pretrained weights at the beginning of the stream, and its weights are not reset between books, so a book is read with whatever the weights retain from the books before it.
+
+Different questions call for different streams, and we use four kinds, summarized in Table~\ref{tab:streams}.
+
+\paragraph{Main streams: the same text in different orders.}
+The central question is whether the learner exploits the temporal locality of text, that is, whether its gain depends on having recently read related material.
+Answering it requires streams that hold the same text in different orders, so that any difference between them is due to the order alone.
+The \emph{main set} consists of 25 test books, each cut to its first 78 chunks (19{,}968 tokens), 1{,}950 chunks in total.
+Its chunks are arranged in four orders of decreasing locality: book after book ($K=1$), as a book is normally read; groups of 5 books, interleaved chunk by chunk within each group ($K=5$); all 25 books interleaved chunk by chunk ($K=25$); and a single random permutation of all chunks (shuffled), in which no book is read in order.
+Cutting the books short keeps the stream at about 500k tokens while leaving 25 books to compute standard errors over, and each book is still long enough to measure what the learner retains from up to about 10k tokens back within it.
+Most results use the main streams, read in order and shuffled; the interleaved orders appear in Section~\ref{sec:levels}.
+
+\paragraph{Long streams: reading further into a book.}
+A main-set book ends after 20k tokens, so the main streams cannot show how the gain develops deep into a book.
+The \emph{long} stream holds 5 test books of 100k tokens (390 chunks each) and the \emph{very long} stream 4 test books of 200k tokens (781 chunks each), both read book after book.
+The long stream extends the locality comparison to longer books (Section~\ref{sec:levels}); the very long stream compares dynamic evaluation with a larger frozen model over a whole long book (Section~\ref{sec:long}) and tracks forgetting over the longest stream (Section~\ref{sec:forgetting}).
+They hold fewer books than the main set, so their standard errors are wider.
+All 5 long books and 2 of the 4 very long books also appear in the main set, cut there to their first 78 chunks.
+
+\paragraph{The val-pick stream: tuning without the test books.}
+Every learning rate is chosen before any test book is read, on a stream of its own, \emph{val-pick}: 10 PG-19 validation books of 78 chunks each, read book after book.
+No reported result uses val-pick, and no learning rate is chosen on a test book.
+
+\paragraph{Eviction streams: one book, then other text.}
+To measure how fast other text displaces the memory of a book, the eviction experiment gives each of 20 main-set books its own short stream: the first half of the book followed by a varying amount of other books (Section~\ref{sec:snapshots}).
+
+\begin{table}[t]
+\centering\footnotesize\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lllll}
+\toprule
+stream & books & chunks & order & used for \\
+\midrule
+main ($K=1, 5, 25$, shuffled) & 25 test, 20k tokens each & 1{,}950 & four orders & locality, most results \\
+long & 5 test, 100k tokens each & 1{,}950 & book after book & locality on longer books \\
+very long & 4 test, 200k tokens each & 3{,}124 & book after book & larger frozen model, forgetting \\
+val-pick & 10 validation, 20k tokens each & 780 & book after book & learning rates only \\
+eviction (one per book) & half a test book, then others & varies & book first & eviction \\
+\bottomrule
+\end{tabular}
+\caption{The input streams. Every stream is read once, chunk by chunk, starting from the pretrained weights.}
+\label{tab:streams}
+\end{table}
+
+\paragraph{Held-out text.}
+Not all text is read as a stream.
+To measure forgetting we use two held-out sets that are never part of any stream and are therefore never trained on: 76 chunks of the detokenized WikiText-103 test split \cite{merity2017pointer}, outside the domain, and 6 other PG-19 validation books of 15 chunks each, inside it.
+They are only scored, by frozen copies of the learner (Section~\ref{sec:snapshots}).
+
 Pythia was trained on the Pile \cite{gao2020pile}, whose PG-19 component has 28{,}602 documents \cite{biderman2022datasheet}, the size of PG-19's training split.
 The test books are therefore very likely absent from Pythia's training data, although the Pile's authors do not state this explicitly and we did not check for other copies of the books.
 
 \subsection{Dynamic evaluation}
 
-Each chunk is scored on its own, without earlier chunks in the context, so any benefit from earlier text must come through the weights.
-After scoring a chunk, the model takes one update step on the chunk's mean loss; every token is therefore predicted before it is trained on.
-We call the updated model the \emph{learner}, and compare it with the frozen pretrained model reading the same chunks without updates.
+The learner reads a stream one chunk at a time, in two steps per chunk.
+It first scores the chunk on its own, without earlier chunks in the context, so any benefit from earlier parts of the stream must come through the weights.
+It then takes one update step on the chunk's mean loss and moves on to the next chunk.
+Every token is therefore predicted before it is trained on.
+We call the updated model the \emph{learner}, and compare it with the frozen pretrained model reading the same stream without updates.
 
 We compare three update rules.
 \emph{Plain SGD} uses no momentum or weight decay; \emph{Adam} \cite{kingma2015adam} starts each stream with a fresh optimizer state; and \emph{normalized SGD} moves every tensor by the same relative amount per step, $W \leftarrow W - \eta\, \lVert W\rVert\, g / \lVert g\rVert$.
 All three update all parameters.
 In addition, some plain-SGD runs on Pythia-14M update only part of the model: the output embedding, everything but the output embedding, the MLPs of all layers, the attention of all layers, or the MLP of a single layer.
-Each combination of update rule, parameter subset and model size has its own learning rate, chosen as the value with the lowest mean loss under dynamic evaluation on val-pick from a grid of $1$ and $3$ times powers of ten.
+Each combination of update rule, parameter subset and model size has its own learning rate, chosen as the value with the lowest mean loss under dynamic evaluation on the val-pick stream, from a grid of $1$ and $3$ times powers of ten.
 The grid is extended until both neighbours of the best value have been tried, so every selected rate lies inside its grid.
 
-To vary locality, the chunks of the main set are read in four orders: book after book ($K=1$), 5 books interleaved chunk by chunk ($K=5$), all 25 books interleaved ($K=25$), and a random order (shuffled).
-The long and very long sets are always read book after book.
+\subsection{Snapshots}\label{sec:snapshots}
 
-To see what the weights hold at a given point, we take \emph{snapshots}: the learner's weights are copied and the copy, kept frozen, scores other text while the learner continues.
+To see what the weights hold at a given point of a stream, we take \emph{snapshots}: the learner's weights are copied and the copy, kept frozen, scores text outside the stream, while the learner continues reading unaffected.
 For forgetting, snapshots are taken every 40 chunks and scored on the held-out sets.
-For eviction (Section~\ref{sec:eviction}), each of 20 main-set books A is split into a first half A1 (40 chunks) and a second half A2 (38 chunks).
-The learner reads A1 followed by $I$ tokens of PG-19 validation books, and a snapshot then scores A2 and the same span C2 of a control book C that the learner never read.
+For eviction (Section~\ref{sec:eviction}), each of 20 main-set books A is split into a first half A1 (40 chunks) and a second half A2 (38 chunks), and gets a stream of its own, read from the pretrained weights: A1 followed by $I$ tokens of PG-19 validation books.
+At the end of this stream a snapshot scores A2 and the same span C2 of a control book C that the learner never read.
 
 \subsection{Metrics}
 
-The \emph{gain} measures how much dynamic evaluation helps: the frozen loss minus the loss under dynamic evaluation on the same tokens, in nats/token, always against the model's own frozen loss.
-To see where the gain comes from, \emph{distance bins} group tokens by how far back the same token id last occurred: in the same chunk (visible to attention), in an earlier chunk less than 1k, 1k to 10k, 10k to 100k or at least 100k tokens back, or never.
+The \emph{gain} measures how much dynamic evaluation helps: the frozen loss minus the loss under dynamic evaluation on the same tokens of the stream, in nats/token, always against the model's own frozen loss.
+To see where the gain comes from, \emph{distance bins} group tokens by how far back in the stream the same token id last occurred: in the same chunk (visible to attention), in an earlier chunk less than 1k, 1k to 10k, 10k to 100k or at least 100k tokens back, or never.
 The 1000 most frequent ids are left out of the earlier-chunk bins, which are further split by whether the previous occurrence was in the same book or an earlier one.
-\emph{Locality} is the part of the gain that requires the order of the text: the gain in reading order minus the gain on the same chunks shuffled.
+\emph{Locality} is the part of the gain that requires the reading order: the gain on a stream in reading order minus the gain on the same chunks shuffled.
 In the eviction experiment, the \emph{memory of A} is what a snapshot still knows about book A beyond general adaptation: its gain on A2 minus its gain on C2.
 \emph{Forgetting} is the loss of general knowledge: a snapshot's loss on a held-out set minus that of the pretrained model, averaged over the snapshots in the second half of the stream, so that positive values mean knowledge lost.
 Finally, the \emph{exchange rate} relates the two: a run's gain on the stream divided by its WikiText forgetting.

@@ -430,52 +430,25 @@ Pythia-31M with dynamic evaluation (plain SGD, lr $3\times10^{-4}$) gains about 
 
 \section{Discussion}
 
-\paragraph{Does dynamic evaluation help more with locality than with random input?}
-Yes: the gain from more than 1k tokens back mostly disappears when the chunks are shuffled, and the overall gain falls at every step from long books to shuffled chunks (Sections~\ref{sec:local} and~\ref{sec:levels}).
+Dynamic evaluation helps more when the input has locality than when the same text arrives in a random order: the gain from more than 1k tokens back mostly disappears when the chunks are shuffled, and the overall gain falls at every step from long books to shuffled chunks (Sections~\ref{sec:local} and~\ref{sec:levels}).
+The memory it builds is also evicted as a cache's would be, at least for a specific book: it halves after a few thousand tokens of other books, with a long tail (Section~\ref{sec:eviction}).
+Unlike a cache, however, filling it overwrites general knowledge outside the domain: collateral forgetting on WikiText is about twice the gain on the stream, and within 14M and 31M a stronger cache forgets more (Sections~\ref{sec:forgetting} and~\ref{sec:tradeoff}).
 
-\paragraph{Does it evict like a cache?}
-Yes for the memory of a specific book: it halves after a few thousand tokens of other books, with a long tail (Section~\ref{sec:eviction}).
-Unlike a cache, filling it overwrites general knowledge outside the domain: collateral forgetting on WikiText is about twice the gain on the stream, and within 14M and 31M a stronger cache forgets more (Sections~\ref{sec:forgetting} and~\ref{sec:tradeoff}).
-
-\paragraph{Is the effect larger in small models?}
-Not between 14M and 31M: locality gain does not change beyond noise, and 14M does not pay more collateral forgetting per nat of gain.
+The effect is not larger in the smaller model, at least between 14M and 31M: locality gain does not change beyond noise, and 14M does not pay more collateral forgetting per nat of gain.
 70M has less cache, but how much depends on the update rule and the step size it allows (Section~\ref{sec:rules}).
+The parameter subset and the update rule do move the size of the cache, but within 14M and 31M every setting we tried moves cache and collateral forgetting together (Section~\ref{sec:tradeoff}), so no knob tested here separates the cache from general knowledge.
+Nor can a small model with dynamic evaluation replace a larger one at these sizes: on long books dynamic evaluation is worth about half the step from 14M to 31M, but 31M gains as much from it (Section~\ref{sec:long}), and baselines with the full context window and with matched compute are still missing.
 
-\paragraph{Is there a knob?}
-Partly: the parameter subset and the update rule move the size of the cache, but within 14M and 31M every setting we tried moves cache and collateral forgetting together (Section~\ref{sec:tradeoff}).
-No knob tested here separates the cache from general knowledge.
+\section{Limitations and future work}\label{sec:future}
 
-\paragraph{Can a small model with dynamic evaluation replace a larger one?}
-Not at these sizes: on long books dynamic evaluation is worth about half the step from 14M to 31M, but 31M gains as much from it (Section~\ref{sec:long}).
-Baselines with the full context window and with matched compute are still missing.
+Our experiments are deliberately small: a single seed of three sizes of one model family, Pythia-14M, 31M and 70M, reading PG-19 books, with WikiText as the out-of-domain reference.
+Whether the cache behaviour holds in larger models and on other inputs with temporal locality, such as code bases and long conversations, remains to be tested, and PolyPythias \cite{vanderwal2025polypythias} would allow repeating the analysis across pretraining seeds.
+Our setup also isolates the memory in the weights by scoring each chunk without earlier context; a practical assessment needs baselines with the full context window and with matched compute, since dynamic evaluation adds an update step after every chunk.
 
-\paragraph{Does it resemble human memory?}
-Only suggestively, and we did not test it directly.
-Most of a book's memory is on the specific tokens seen (\memoryRareIn{} for rare tokens of A1, against \memoryRareNotIn{} for other rare tokens), which resembles episodic memory, while the gain that survives shuffling transfers to unseen books, which resembles semantic memory.
-Eviction is fast at first and slow later, closer to a power law than to an exponential.
-
-\section{Limitations}
-
-\begin{itemize}
-\item \textbf{One seed.} Error bars are across books, not across models or runs.
-\item \textbf{Three sizes of one family.} Pythia-14M, 31M and 70M only.
-\item \textbf{One kind of data.} PG-19 books only; WikiText is the only out-of-domain text, and collateral forgetting is measured on 76 WikiText chunks and 6 books.
-\item \textbf{No full-context baseline.} Chunks of 256 tokens are scored without earlier context; a model with its full context window would see more of the recent past through attention.
-\item \textbf{Learning rates.} Rates are picked on mean validation loss, not on locality gain, and different subsets and sizes use different rates, so comparisons across them mix in the rate.
-\item \textbf{Wall time is not compute.} We did not measure compute; dynamic-evaluation runs update after every chunk, frozen runs do not.
-\item \textbf{Overlapping sets.} All 5 long books and 2 of the 4 very long books are also in the main set.
-\end{itemize}
-
-\section{Future work}\label{sec:future}
-
-\begin{itemize}
-\item A separate fast cache part on top of a frozen or slowly learning model, with a fallback to the frozen model when the cache does not help.
-\item Capacity: many books interleaved at once, and the size of the adapted part against the eviction half-life.
-\item Why Adam removes the cache: ablate its momentum and its per-weight normalization.
-\item Baselines with the full context window and with matched compute.
-\item More seeds (PolyPythias \cite{vanderwal2025polypythias}) and larger models.
-\item Direct memory tests: savings on re-reading, interference between similar books, spacing, and planted facts.
-\end{itemize}
+The results also suggest how the cache could be exploited better.
+Since the cache and general knowledge compete for the same weights, a separate fast part on top of a frozen or slowly learning model could hold the recent context, with a fallback to the frozen model when the cache does not help.
+The capacity of such a cache could be probed by interleaving many books at once and relating the size of the adapted part to the eviction half-life.
+Finally, Adam has no cache at any size, and ablating its momentum and its per-weight normalization could show which property of the update rule a cache in the weights depends on.
 
 \section{Conclusion}
 

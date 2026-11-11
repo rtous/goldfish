@@ -56,7 +56,7 @@ On 200k-token books, dynamic evaluation closes about half the gap between a 14M-
 
 \section{Introduction}
 
-Small language models are cheaper to run and can be deployed on memory-constrained devices, but their limited capacity restricts how much knowledge and context they can retain \citep{liu2024mobilellm}.
+Small language models are cheaper to run and can be deployed on memory-constrained devices, but their limited capacity restricts how much knowledge and context they can retain.
 Yet what a model reads at inference time often shows temporal locality, i.e.\ recently seen content is likely to be seen again: a book keeps its characters, places and turns of phrase for hundreds of thousands of tokens, and so can a long conversation or a code base, far longer than an attention window lasts.
 Memory hierarchies exploit this property with a small cache that holds recently used data and lets older data be pushed out, so that a small memory serves a workload as though it were a large one \citep{denning1968working}.
 By analogy, a small model whose parameters cached its current context, instead of permanently holding everything it might ever need, could perform on that context comparably to a larger model.
@@ -72,31 +72,34 @@ New material should push out old material (\emph{eviction}), the useful side of 
 And the cache should leave the knowledge the model already had largely intact; we call the loss of that knowledge, the harmful side, \emph{collateral forgetting}.
 
 We test this with small Pythia models \citep{biderman2023pythia} reading PG-19 books \citep{rae2020compressive}, split into chunks of 256 tokens that are each scored without the previous chunks in context, so that anything that helps from further back must come through the weights.
-Our contributions are:
-(i) we measure the reach of the memory and its dependence on input locality, and compare it with a token-count cache;
-(ii) we locate where in the network it is stored;
-(iii) we measure how fast other text evicts it and how much general knowledge, inside and outside the domain, is forgotten;
-(iv) we study how the update rule and model size shape the cache and its collateral forgetting; and
-(v) we assess what dynamic evaluation is worth against a larger frozen model on long books.
+Our contributions are as follows.
+\begin{itemize}
+\item We measure the reach of the memory and its dependence on input locality, and compare it with a token-count cache (Sections~\ref{sec:local} and~\ref{sec:levels}).
+\item We locate where in the network the memory is stored (Section~\ref{sec:where}).
+\item We measure how fast other text evicts the memory, and how much general knowledge, inside and outside the domain, is forgotten (Sections~\ref{sec:eviction} and~\ref{sec:forgetting}).
+\item We study how the update rule and the model size affect the cache and its collateral forgetting, and the trade-off between the two (Section~\ref{sec:rules}).
+\item We assess what dynamic evaluation is worth against a larger frozen model on long books (Section~\ref{sec:long}).
+\end{itemize}
+The long-term objective of this line of work is to determine whether such a cache can reduce the model size required for a given level of performance; this study is a first step, examining whether cache behaviour emerges in a standard transformer and at what cost to general knowledge.
 
 \section{Related work}
 
 \paragraph{Cache language models}
-Text has temporal locality: a word that has occurred in a document is far more likely to recur than its corpus frequency predicts \citep{church2000empirical}, and source code is similarly repetitive within a file \citep{tu2014localness}.
-Cache language models exploit this by interpolating the model's prediction with a distribution estimated from the recent history \citep{kuhn1990cache,jelinek1991dynamic}.
-Neural variants store recent hidden states \citep{grave2017improving,khandelwal2020generalization}, and several transformers extend the attention window with recurrent, compressed or external memories \citep{dai2019transformerxl,rae2020compressive,wu2022memorizing,bulatov2022recurrent}.
+Text has temporal locality: a word that has occurred in a document is far more likely to recur than its corpus frequency predicts \citep{church2000empirical}.
+Cache language models exploit this by interpolating the model's prediction with a distribution estimated from the recent history \citep{kuhn1990cache}.
+Neural variants store recent hidden states \citep{grave2017improving}, and several transformers extend the attention window with compressed or external memories \citep{rae2020compressive,wu2022memorizing}.
 In all of these the past is held in activations or a separate store and the parameters stay fixed; we instead restrict the context so that the past can only be held in the parameters.
 
 \paragraph{Dynamic evaluation and test-time training}
-Dynamic evaluation updates a trained model by gradient descent on the part of the sequence already observed, so that each token is predicted before it is trained on \citep{mikolov2010recurrent,graves2013generating}.
+Dynamic evaluation updates a trained model by gradient descent on the part of the sequence already observed, so that each token is predicted before it is trained on \citep{mikolov2010recurrent}.
 \citet{krause2018dynamic,krause2019dynamic} motivate it by the recurrence of patterns within a sequence and favour recent history through a decay towards the trained weights, and \citet{rannentriki2024revisiting} interpret it as a memory in the weights complementary to the context window and show that, under distribution shift, a smaller model with online learning can offer a better compute--loss trade-off than a larger static one.
 That dynamic evaluation benefits from locality is thus the premise of this literature; we quantify it by comparing the same text in order and shuffled, and use neither decay nor resets so that eviction can be measured directly.
-Test-time training adapts a model to each test instance \citep{sun2020test} and has inspired layers and memories that learn as they read \citep{sun2024learning,behrouz2024titans}; recent methods for transformers update the MLP output projections \citep{feng2026inplace}, the attention queries \citep{bansal2026lets} or the MLPs of a meta-trained model \citep{tandon2025endtoend}, descending from fast weights \citep{hinton1987using,schmidhuber1992learning,ba2016using}.
+Test-time training adapts a model to each test instance \citep{sun2020test} and has inspired layers and memories that learn as they read \citep{behrouz2024titans}; recent methods for transformers update the MLP output projections \citep{feng2026inplace}, the attention queries \citep{bansal2026lets} or the MLPs of a meta-trained model \citep{tandon2025endtoend}, descending from fast weights \citep{hinton1987using,ba2016using}.
 They fix by design which parameters adapt and how fast the memory fades; we study an unmodified pretrained model and ask where the memory forms and how long it persists.
 
 \paragraph{Forgetting}
-Catastrophic interference was first documented in networks trained sequentially \citep{mccloskey1989catastrophic,french1999catastrophic} and has motivated methods that protect important parameters \citep{kirkpatrick2017overcoming}.
-Large language models lose general capabilities during continual fine-tuning \citep{luo2023empirical}, models updated by dynamic evaluation degrade on older text \citep{lazaridou2021mind}, and knowledge from pretraining decays as a power law of later training steps \citep{chang2024how}; much of it appears to reside in the feed-forward layers \citep{geva2021transformer,meng2022locating}.
+Catastrophic interference was first documented in networks trained sequentially \citep{mccloskey1989catastrophic} and has motivated methods that protect important parameters \citep{kirkpatrick2017overcoming}.
+Models updated by dynamic evaluation degrade on older text \citep{lazaridou2021mind}, and knowledge from pretraining decays as a power law of later training steps \citep{chang2024how}; much of it appears to reside in the feed-forward layers \citep{geva2021transformer,meng2022locating}.
 Forgetting may also be adaptive, reflecting the decreasing probability that an item will be needed again \citep{anderson1991reflections}, which is the assumption a cache relies on.
 We measure both the eviction of a book and the loss of general knowledge in the same runs.
 
@@ -110,7 +113,7 @@ We use Pythia-14M, 31M and 70M \citep{biderman2023pythia} (6 layers each, same t
 \paragraph{Input streams}
 All streams are built from PG-19 books \citep{rae2020compressive}, each tokenized on its own and cut into non-overlapping chunks, so that no chunk spans two books; the learner starts from the pretrained weights and is never reset.
 The \emph{main set} holds 25 test books cut to their first 78 chunks (19{,}968 tokens), 1{,}950 chunks in total, arranged in four orders of decreasing locality: book after book ($K=1$); groups of 5 books interleaved chunk by chunk ($K=5$); all 25 interleaved ($K=25$); and a random permutation (shuffled).
-Any difference between these orders is due to the order alone.
+Any difference between these orders is due to the order alone, and cutting the books short keeps the stream at about 500k tokens while leaving 25 books to compute standard errors over.
 The \emph{long} stream holds 5 test books of 100k tokens and the \emph{very long} stream 4 books of 200k tokens, both read book after book.
 Learning rates are selected on a separate \emph{val-pick} stream of 10 PG-19 validation books of 78 chunks, as the value with the lowest mean loss from a grid of $1$ and $3$ times powers of ten, extended until both neighbours of the best value have been tried; no reported result uses val-pick.
 The Pile \citep{gao2020pile}, on which Pythia was trained, includes a PG-19 component of 28{,}602 documents \citep{biderman2022datasheet}, the size of PG-19's training split, so the test books are very likely absent from the training data.
@@ -137,7 +140,7 @@ Standard errors (SE) are computed over books (paired when two runs read the same
 \subsection{A memory beyond the window, and it is local}\label{sec:local}
 
 With plain SGD at lr $10^{-4}$, Pythia-14M reading the main set in order gains \gainInOrderAllPM{} nats/token over its frozen loss of \frozenLossMain{} (Table~\ref{tab:distance}).
-The gain falls with distance: \gainInOrderOneKPM{} for rare tokens last seen less than 1k tokens back, \gainInOrderTenKPM{} between 1k and 10k, and \gainInOrderHundredKPM{} between 10k and 100k, while never-seen tokens lose \gainInOrderNeverPM{}.
+The gain falls with distance: \gainInOrderOneKPM{} for rare tokens last seen less than 1k tokens back, \gainInOrderTenKPM{} between 1k and 10k, and \gainInOrderHundredKPM{} between 10k and 100k, while never-seen tokens lose \gainInOrderNeverPM{} and tokens repeated within their own chunk \gainInOrderSameChunkPM{}.
 Within a book the gain grows from \posGainFirstPM{} in its first 1k tokens to \posGainLastPM{} in its last 1k, while the shuffled learner's gain stays between \posShuffledMin{} and \posShuffledMax{} (Fig.~\ref{fig:distance}b).
 Shuffling keeps \shuffledShareAll{} of the overall gain, but only \shuffledShareOneK{} less than 1k tokens back and \shuffledShareTenK{} between 1k and 10k (locality gain \localityOneKPM{} and \localityTenKPM{}): most of the overall gain is adaptation to PG-19 text in general, and most of the long-range gain needs the order.
 
@@ -176,7 +179,8 @@ The long stream covers mostly different text, so the step from it to $K=1$ is no
 
 \subsection{Where the memory lives}\label{sec:where}
 
-We update one part of Pythia-14M at a time, each at its own learning rate.
+If the memory sits in particular weights, updating only those should keep it.
+We update one part of Pythia-14M at a time, each at its own learning rate (Table~\ref{tab:subsets}).
 Freezing the output embedding costs little (\minusFullNoOutputAllPM{} overall against all parameters).
 The output embedding alone is a short-range cache: \gainOutputOneKPM{} less than 1k tokens back but \gainOutputTenKSamePM{} between 1k and 10k (same book), and the largest loss on never-seen tokens (\gainOutputNeverPM{}).
 Attention alone keeps less of the long-range gain (\gainAttentionTenKSamePM{} between 1k and 10k, same book).
@@ -186,6 +190,13 @@ One layer's MLP alone keeps between \layerShareOneKMin{} and \layerShareOneKMax{
 The MLP-only learner owes its larger gain to a stronger cache, not to better general adaptation: its locality gain is \mvfMlpLocOneKPM{} against \mvfFullLocOneKPM{} less than 1k tokens back (paired \mvfDiffLocOneKPM{}), while shuffled it gains slightly less overall (\mvfDiffShuffledAllPM{}).
 It also forgets more WikiText (\mvfMlpWikiPM{} against \mvfFullWikiPM{}, paired \mvfDiffWikiPM{}), at a lower exchange rate (\mvfMlpExchange{} against \mvfFullExchange{}).
 All parameters at its rate, $3\times10^{-4}$, are already worse on val-pick (\valPickAllHigh{} against \valPickAll{}); with plain SGD at 14M attention takes \shareAttnFourteen{} of the squared update norm, which may limit the step the full learner can use.
+
+\begin{table}[t]
+\caption{Gain over frozen Pythia-14M when only some parameters are updated with plain SGD, in reading order ($K=1$), each subset at its own val-pick learning rate ($\pm$ SE over books). Columns are distance bins; ``same book'': the previous occurrence is in the same book.}
+\label{tab:subsets}
+\centering\footnotesize\setlength{\tabcolsep}{3pt}
+\resizebox{\columnwidth}{!}{\input{tables/subsets}}
+\end{table}
 
 \begin{figure}[t]
 \centering
@@ -213,10 +224,18 @@ A power law in $I$ fits better than an exponential with a floor ($\chi^2$ \fitCh
 \subsection{Collateral forgetting}\label{sec:forgetting}
 
 A cache should leave the rest of memory intact.
+We score frozen snapshots on text the learner never reads (Table~\ref{tab:forgetting}).
 Reading the main set in order, Pythia-14M (plain SGD, lr $10^{-4}$) forgets \forgetWikiKOnePM{} nats/token on WikiText (pretrained loss \frozenWiki{}), about \wikiOverGainKOne{} times its gain on the stream (exchange rate \exchangeKOne{}), but loses nothing on the held-out PG-19 books (\forgetBooksKOnePM{}).
 The shuffled learner forgets less on WikiText (\forgetWikiShuffledPM{}) and improves on the unseen books (\forgetBooksShuffledPM{}): the part of the gain that survives shuffling is adaptation to PG-19 text, and it carries over.
 Reading in order forgets more than shuffled on both sets (\shMinusKOneWikiPM{} on WikiText, \shMinusKOneBooksPM{} on the books), at about the same exchange rate (\exchangeKOne{} and \exchangeShuffled{}).
 Over the very long stream (800k tokens), forgetting on WikiText averages \veryLongWikiBookOne{} over the snapshots in the first book and \veryLongWikiBookTwo{}, \veryLongWikiBookThree{} and \veryLongWikiBookFour{} in the next three: it levels off after the first book, while the held-out books lose a little (\forgetBooksVeryLongPM{}).
+
+\begin{table}[t]
+\caption{Collateral forgetting of held-out text by Pythia-14M with plain SGD on all parameters (lr $10^{-4}$): snapshot loss $-$ pretrained loss, mean over the snapshots in the second half of the stream, $\pm$ SE over the WikiText chunks or the 6 held-out books; positive means knowledge lost. Stream gain: over the frozen loss on the stream, $\pm$ SE over books. Exchange rate = stream gain / forgetting on WikiText. Very long: 4 books of 200k tokens. $\dagger$: under 2 SE.}
+\label{tab:forgetting}
+\centering\footnotesize\setlength{\tabcolsep}{3pt}
+\input{tables/forgetting_prl}
+\end{table}
 
 \subsection{Update rules, model size and a trade-off}\label{sec:rules}
 
@@ -270,7 +289,7 @@ The effect is not larger in the smaller model, at least between 14M and 31M, and
 Nor can a small model with dynamic evaluation replace a larger one at these sizes: on long books it is worth about half the step from 14M to 31M, but 31M gains as much from it.
 
 Our experiments are deliberately small: a single seed of three sizes of one model family reading PG-19, with WikiText as the out-of-domain reference.
-Whether the behaviour holds in larger models and on other inputs with locality, such as code bases and long conversations, remains to be tested, and PolyPythias \citep{vanderwal2025polypythias} would allow repeating the analysis across pretraining seeds.
+Whether the behaviour holds in larger models and on other inputs with locality, such as code bases and long conversations, remains to be tested, as does repeating the analysis across pretraining seeds.
 Scoring each chunk without earlier context isolates the memory in the weights; a practical assessment needs baselines with the full context window and with matched compute.
 Since the cache and general knowledge compete for the same weights, a separate fast part on top of a frozen or slowly learning model could hold the recent context, and ablating Adam's momentum and per-weight normalization could show which property of the update rule a cache in the weights depends on.
 

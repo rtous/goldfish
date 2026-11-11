@@ -1,0 +1,12 @@
+% Rows 1-5 of tables/layers.tex (copy of ../paper/tables/layers.tex) without the parameter-count column.
+\begin{tabular}{lrrrrr}
+\toprule
+updated & lr & all & $<$ 1k & \begin{tabular}[b]{@{}r@{}}1k-10k,\\same book\end{tabular} & \begin{tabular}[b]{@{}r@{}}never\\seen\end{tabular} \\
+\midrule
+all parameters & $10^{-4}$ & $+0.100_{\pm .006}$ & $+0.307_{\pm .011}$ & $+0.154_{\pm .008}$ & $-0.059_{\pm .013}$ \\
+output emb.\ only & $3\!\times\!10^{-3}$ & $+0.072_{\pm .005}$ & $+0.252_{\pm .017}$ & $+0.072_{\pm .006}$ & $-0.143_{\pm .012}$ \\
+all but output emb. & $10^{-4}$ & $+0.094_{\pm .005}$ & $+0.294_{\pm .011}$ & $+0.151_{\pm .009}$ & $-0.058_{\pm .013}$ \\
+MLPs only & $3\!\times\!10^{-4}$ & $+0.107_{\pm .007}$ & $+0.415_{\pm .016}$ & $+0.175_{\pm .011}$ & $-0.077_{\pm .014}$ \\
+attention only & $3\!\times\!10^{-4}$ & $+0.066_{\pm .005}$ & $+0.259_{\pm .011}$ & $+0.110_{\pm .009}$ & $-0.074_{\pm .014}$ \\
+\bottomrule
+\end{tabular}

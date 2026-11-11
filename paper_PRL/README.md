@@ -34,13 +34,19 @@ blocks automated access, so check the live guide before you submit.
 
 - Abstract rewritten for the 200-word limit. Introduction, related work and setup condensed. The
   contribution list is now inline, and Discussion, Limitations and Future work are merged into one section.
-- Tables removed: input streams, same book / earlier book, parameter subsets, MLPs vs all, and
-  collateral forgetting. Their key numbers stay in the text.
+- Tables removed: input streams, same book / earlier book, and MLPs vs all. Their key numbers stay
+  in the text. The parameter-subset and collateral-forgetting tables are kept in a column-width form
+  (`tables/subsets.tex` and `tables/forgetting_prl.tex`, derived by hand from the copies of
+  `../paper/tables/layers.tex` and `forgetting.tex`; redo them if those change).
 - Figures removed: rules vs size and loss by position in 200k-token books. The rules table and the
   very-long table give the same numbers.
 - Layers and locality levels are now separate one-column figures. The trade-off figure is redrawn at
   one-column width.
-- Two references were dropped: `zhao2021calibrate` and `clark2022meta`.
+- 14 references were dropped (41 → 29 in the PRL version, from 43 in `../paper`): `zhao2021calibrate`,
+  `clark2022meta`, `liu2024mobilellm`, `tu2014localness`, `jelinek1991dynamic`,
+  `khandelwal2020generalization`, `dai2019transformerxl`, `bulatov2022recurrent`,
+  `graves2013generating`, `sun2024learning`, `schmidhuber1992learning`, `french1999catastrophic`,
+  `luo2023empirical` and `vanderwal2025polypythias`.
 
 ## Before submitting, check
 

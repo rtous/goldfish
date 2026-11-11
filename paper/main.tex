@@ -7,6 +7,7 @@
 \usepackage{amsmath}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage{url}
 % hyperref needs letltxmacro.sty (texlive-latex-extra); skipped when it is not installed.
 \IfFileExists{letltxmacro.sty}{\usepackage{hyperref}}{}
 \usepackage[numbers]{natbib}
@@ -25,7 +26,7 @@
 \input{numbers}
 
 \title{A Cache in the Weights? Dynamic Evaluation and Temporal Locality in Small Language Models}
-\author{Ruben Tous\\ \small{\textit{Universitat Politècnica de Catalunya, Barcelona, Spain}}}
+\author{Ruben Tous, Beatriz Otero and Josep Lluis Berral\\ \small{\textit{Universitat Politècnica de Catalunya, Barcelona, Spain}}}
 \date{Draft, \today}
 
 \begin{document}
@@ -469,6 +470,14 @@ The update rule and the set of weights being updated change how much cache a mod
 A standard transformer thus has a cache in its weights, but not a clean one: the eviction of old context comes bundled with the collateral forgetting of general knowledge.
 Even so, the cache already matters at this scale: on long books, a 14M-parameter model with dynamic evaluation closes \gapClosedFourteen{} of the gap to a frozen model about twice its size, and the cache behaves in the same way at both sizes.
 Separating eviction from collateral forgetting, for instance with a dedicated fast part of the network, could strengthen the cache and make better use of temporal locality, moving towards small models that perform on the context at hand like larger ones.
+
+\section*{Code and data availability}
+
+The code and data are publicly available at \url{https://github.com/rtous/goldfish}, including the scripts that run the experiments, their results, and the scripts that generate the tables and figures of this paper from those results.
+
+\section*{Acknowledgements}
+
+This work has been financed by Project PID2024-160996OB-I00, under grant agreement MICIU/\allowbreak AEI/\allowbreak 10.13039/\allowbreak 501100011033 and FEDER, UE, and by Generalitat de Catalunya (AGAUR) under grant agreement 2021-SGR-00478.
 
 {\small
 \setlength{\bibsep}{1.5pt plus 0.5pt}

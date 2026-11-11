@@ -1,0 +1,35 @@
+%% Cover letter for the submission to Pattern Recognition Letters.
+\documentclass[10pt]{letter}
+\usepackage[a4paper,margin=2.2cm,top=1.8cm]{geometry}
+\usepackage{times}
+\usepackage{url}
+\signature{Ruben Tous, on behalf of all authors}
+\address{Ruben Tous\\Department of Computer Architecture\\Universitat Polit\`ecnica de Catalunya\\Jordi Girona 1-3, 08034 Barcelona, Spain\\ruben.tous@upc.edu}
+\date{\today}
+\begin{document}
+\begin{letter}{Editor-in-Chief\\Pattern Recognition Letters}
+
+\opening{Dear Editor,}
+
+Please find enclosed our manuscript, ``A cache in the weights? Dynamic evaluation and temporal locality in small language models'', by Ruben Tous, Beatriz Otero and Josep Lluis Berral, which we submit for consideration as a full-length article in Pattern Recognition Letters.
+
+Dynamic evaluation and test-time training let a language model keep learning from the text it reads at inference time, and the forgetting this causes is usually treated as a problem. Our manuscript asks a different question: since the inputs of language models often show temporal locality, can this forgetting act as eviction, so that the weights of a small model behave as a cache of the recent context beyond the attention window? We test this in a controlled setting with small Pythia models reading PG-19 books, where each chunk is scored without the preceding text in context, so that any help from earlier text must come through the weights, and where the same text is read in order and shuffled.
+
+The main findings are:
+\begin{itemize}
+\item the updated weights hold a memory of the current book beyond the attention window; it depends on the order of the input and is stored mostly in the MLPs;
+\item other text evicts this memory, which halves within a few thousand tokens;
+\item the memory shares the weights with general knowledge: in-domain knowledge is preserved, but out-of-domain text is partly forgotten, and every setting we tried that strengthens the cache also increases this collateral forgetting;
+\item on books of 200k tokens, a 14M-parameter model with dynamic evaluation closes about half the gap to a frozen model twice its size.
+\end{itemize}
+
+We believe the work fits the scope of Pattern Recognition Letters, as it addresses online learning and sequence modelling in neural networks, with a focus on the memory and forgetting behaviour of small models that can run on resource-constrained devices. The study is compact and fully reproducible: the code, the experimental results and the scripts that generate every table and figure are publicly available at \url{https://github.com/rtous/goldfish}.
+
+We confirm that this manuscript is original, has not been published, and is not under consideration for publication elsewhere. All authors have read and approved the manuscript and agree with its submission to Pattern Recognition Letters. The authors declare no competing interests.
+
+Thank you for your time and consideration.
+
+\closing{Sincerely,}
+
+\end{letter}
+\end{document}

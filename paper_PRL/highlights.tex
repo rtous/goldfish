@@ -1,0 +1,19 @@
+%% Research Highlights for Pattern Recognition Letters (required, separate file).
+%% 3 to 5 bullet points, at most 85 characters each including spaces.
+\documentclass[11pt]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{times}
+\pagestyle{empty}
+\begin{document}
+
+\section*{Research Highlights}
+
+\begin{itemize}
+\item Dynamic evaluation turns a small model's weights into a cache of recent context
+\item This memory needs input locality and is tied mostly to the book being read
+\item Other text evicts it: the memory halves within a few thousand tokens
+\item The memory sits mostly in the MLPs and costs out-of-domain knowledge
+\item On long books, a 14M model closes half the gap to a frozen model twice its size
+\end{itemize}
+
+\end{document}

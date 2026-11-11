@@ -1,0 +1,5 @@
+Dynamic evaluation turns a small model's weights into a cache of recent context
+This memory needs input locality and is tied mostly to the book being read
+Other text evicts it: the memory halves within a few thousand tokens
+The memory sits mostly in the MLPs and costs out-of-domain knowledge
+On long books, a 14M model closes half the gap to a frozen model twice its size

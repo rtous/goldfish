@@ -76,7 +76,7 @@ def distance():
     constant loss and an SE of 0."""
     rows = [[BIN_TEX[b], "{:,}".format(int(E1[b]["tokens"])), "%.3f" % float(E1[b]["frozen"]),
              e1(b, "gain_in_order"), e1(b, "gain_shuffled"), e1(b, "locality"), e1(b, "gain_unigram")] for b in BINS]
-    write("distance", ["bin (previous occurrence)", "tokens", "frozen loss", "in order", "shuffled", "locality",
+    write("distance", ["bin (previous occurrence)", "tokens", "frozen loss", "in order", "shuffled", "locality gain",
                        "unigram cache"], rows, "lrrrrrr")
 
 
@@ -89,7 +89,7 @@ def samebook():
         name = "%s, %s" % (b, split)
         rows.append([BIN_TEX[b], split, "{:,}".format(int(E1[name]["tokens"])), e1(name, "gain_in_order"),
                      e1(name, "gain_shuffled"), e1(name, "locality"), e1(name, "gain_unigram")])
-    write("samebook", ["bin", "previous occurrence", "tokens", "in order", "shuffled", "locality", "unigram cache"],
+    write("samebook", ["bin", "previous occurrence", "tokens", "in order", "shuffled", "locality gain", "unigram cache"],
           rows, "llrrrrr")
 
 
@@ -117,7 +117,7 @@ def mlp_vs_full():
     bin_tex = {"all tokens": "all tokens", "earlier chunk, < 1k": "earlier, $<$ 1k",
                "earlier chunk, 1k-10k, same book": "1k-10k, same book", "never seen": "never seen",
                "K = 1": "$K=1$", "shuffled": "shuffled"}
-    names = {"WikiText forgetting, last half": "WikiText forgetting", "held-out books forgetting, last half":
+    names = {"locality": "locality gain", "WikiText forgetting, last half": "WikiText forgetting", "held-out books forgetting, last half":
              "held-out books forgetting", "stream gain / WikiText forgetting (last half)": "exchange rate"}
     rows, last = [], None
     for r in rows_in:
@@ -166,7 +166,7 @@ def rules():
                          pm(a["gain_K1"], a["gain_K1_se"]), pm(n["locality"], n["locality_se"]),
                          pm(a["locality"], a["locality_se"]), pm(e["wiki_forgetting_K1"], e["wiki_forgetting_K1_se"]),
                          e["exchange_rate_K1"], e["exchange_rate_shuffled"]])
-    write("rules", ["size", "rule", "lr", "gain, $K=1$", "locality, $<$ 1k", "locality, all", "WikiText forgetting",
+    write("rules", ["size", "rule", "lr", "gain, $K=1$", "loc. gain, $<$ 1k", "loc. gain, all", "WikiText forgetting",
                     "exch. rate, $K=1$", "shuffled"], rows, "llrrrrrrr")
 
 

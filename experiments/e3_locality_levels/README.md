@@ -6,14 +6,15 @@
 
 - Pythia-14M, plain SGD on all parameters, lr 1e-4 (E0 pick), one step per chunk.
 - **Streams**, from most to least local:
-  - long: 5 PG-19 test books (not in the main set) of 100k tokens each, 390 chunks per book, book
-    after book (497,250 tokens, same total as the main set);
+  - long: 5 PG-19 test books (all also in the main set, which holds only their first 20k tokens)
+    of 100k tokens each, 390 chunks per book, book after book (497,250 tokens, same total as the
+    main set);
   - K = 1: the main set (25 books x 78 chunks) book after book;
   - K = 5 / K = 25: the main set with 5 / 25 books interleaved chunk by chunk;
   - shuffled: the main set's chunks in a random order.
 - Gain = frozen 14M loss - online loss on the same stream, all tokens, SE over books. Drop =
-  paired difference with the next more local stream (same 25 books; long has other books, so no
-  paired drop from long to K = 1). `results.csv`.
+  paired difference with the next more local stream (same 25 books; long covers mostly different
+  text, so no paired drop from long to K = 1). `results.csv`.
 
 ## Results
 
@@ -37,8 +38,8 @@
 
 ## Caveats
 
-- Long uses other books than the main set, so long > K = 1 is not a paired comparison (5 books;
-  its SE is large).
+- Long covers mostly different text than the main set (only the first 20k tokens of its 5 books are
+  shared), so long > K = 1 is not a paired comparison (5 books; its SE is large).
 - One model, one rate, one seed.
 
 Runtime: K = 5 and K = 25 2.5 min each, long 3 min; K = 1 and shuffled from E1 (`runtime.txt`).

@@ -38,8 +38,8 @@ Dynamic evaluation and test-time training let a language model keep learning fro
 \section{Introduction}
 
 Language models store in their parameters a vast amount of knowledge, most of which is irrelevant to any particular input they process.
-Small models are cheaper to run and can be deployed on memory-constrained devices, but their limited capacity restricts how much knowledge and context they can retain. % TODO: citation for small / on-device models
-Yet what a model reads at inference time has temporal locality, i.e.\ recently seen content is likely to be seen again: a book keeps its characters, places and turns of phrase for hundreds of thousands of tokens, and so do a long conversation or a code base, far longer than an attention window lasts.
+Small models are cheaper to run and can be deployed on memory-constrained devices, but their limited capacity restricts how much knowledge and context they can retain \cite{liu2024mobilellm}.
+Yet what a model reads at inference time often shows temporal locality, i.e.\ recently seen content is likely to be seen again: a book keeps its characters, places and turns of phrase for hundreds of thousands of tokens, and so can a long conversation or a code base, far longer than an attention window lasts.
 Computer memory hierarchies exploit this property with a small cache that holds recently used data and lets older data be pushed out, allowing a small memory to serve a workload as though it were a large one \cite{denning1968working}.
 By analogy, a small model whose parameters cached its current context, instead of permanently holding everything it might ever need, could perform on that context comparably to a larger model.
 
@@ -115,9 +115,9 @@ We therefore measure both the eviction of a book's memory and the loss of genera
 Every experiment in this paper has the same structure.
 A model reads an \emph{input stream}: a single, ordered sequence of text that it reads once, from beginning to end, in consecutive chunks of 256 tokens, as a language model reads text during inference.
 Attention covers only the current chunk, so whatever the model can use from earlier parts of the stream must be carried in its weights.
-Under dynamic evaluation the model updates those weights as it reads; the frozen pretrained model reading the same stream without updates is the reference.
+Under dynamic evaluation the model updates those weights as it reads; we call the updated model the \emph{learner}, and the frozen pretrained model reading the same stream without updates is the reference.
 The experiments differ in the streams they use, which vary in length and in how often their content recurs, and in what is measured on the updated weights along the way.
-We first describe the streams and why each is needed, then how the learner reads them and what we measure.
+After the models, we describe the streams and why each is needed, then how the learner reads them and what we measure.
 
 \subsection{Models}
 
@@ -133,11 +133,11 @@ It is read without interruption: the learner starts from the pretrained weights 
 Different questions call for different streams, and we use four kinds, summarized in Table~\ref{tab:streams}.
 
 \paragraph{Main streams: the same text in different orders.}
-The central question is whether the learner exploits the temporal locality of text, that is, whether its gain depends on having recently read related material.
+The central question is whether the learner exploits the temporal locality of text.
 Answering it requires streams that hold the same text in different orders, so that any difference between them is due to the order alone.
 The \emph{main set} consists of 25 test books, each cut to its first 78 chunks (19{,}968 tokens), 1{,}950 chunks in total.
 Its chunks are arranged in four orders of decreasing locality: book after book ($K=1$), as a book is normally read; groups of 5 books, interleaved chunk by chunk within each group ($K=5$); all 25 books interleaved chunk by chunk ($K=25$); and a single random permutation of all chunks (shuffled), in which no book is read in order.
-Cutting the books short keeps the stream at about 500k tokens while leaving 25 books to compute standard errors over, and each book is still long enough to measure what the learner retains from up to about 10k tokens back within it.
+Cutting the books short keeps the stream at about 500k tokens while leaving 25 books to compute standard errors over, and each book is still long enough to measure what the learner retains from up to about 20k tokens back within it.
 Most results use the main streams, read in order and shuffled; the interleaved orders appear in Section~\ref{sec:levels}.
 
 \paragraph{Long streams: reading further into a book.}
@@ -170,7 +170,7 @@ main ($K=1, 5, 25$, shuffled) & 25 test, 20k tokens each & 1{,}950 & four orders
 long & 5 test, 100k tokens each & 1{,}950 & book after book & locality on longer books \\
 very long & 4 test, 200k tokens each & 3{,}124 & book after book & larger frozen model, forgetting \\
 val-pick & 10 validation, 20k tokens each & 780 & book after book & learning rates only \\
-eviction (one per book) & half a test book, then others & varies & book first & eviction \\
+eviction (one per book) & half a test book, then others & varies & in order & eviction \\
 \bottomrule
 \end{tabular}
 \caption{The input streams. Every stream is read once, chunk by chunk, starting from the pretrained weights.}
@@ -189,32 +189,27 @@ The test books are therefore very likely absent from Pythia's training data, alt
 
 \subsection{Dynamic evaluation}
 
-The learner reads a stream one chunk at a time, in two steps per chunk.
-It first scores the chunk on its own, without earlier chunks in the context, so any benefit from earlier parts of the stream must come through the weights.
-It then takes one update step on the chunk's mean loss and moves on to the next chunk.
-Every token is therefore predicted before it is trained on.
-We call the updated model the \emph{learner}, and compare it with the frozen pretrained model reading the same stream without updates.
+For each chunk, the learner first scores it and then takes one update step on the chunk's mean loss before moving on to the next, so every token is predicted before it is trained on.
 
 We compare three update rules.
 \emph{Plain SGD} uses no momentum or weight decay; \emph{Adam} \cite{kingma2015adam} starts each stream with a fresh optimizer state; and \emph{normalized SGD} moves every tensor by the same relative amount per step, $W \leftarrow W - \eta\, \lVert W\rVert\, g / \lVert g\rVert$.
 All three update all parameters.
 In addition, some plain-SGD runs on Pythia-14M update only part of the model: the output embedding, everything but the output embedding, the MLPs of all layers, the attention of all layers, or the MLP of a single layer.
-Each combination of update rule, parameter subset and model size has its own learning rate, chosen as the value with the lowest mean loss under dynamic evaluation on the val-pick stream, from a grid of $1$ and $3$ times powers of ten.
+Each learning rate is chosen on the val-pick stream as the value with the lowest mean loss under dynamic evaluation, from a grid of $1$ and $3$ times powers of ten.
 The grid is extended until both neighbours of the best value have been tried, so every selected rate lies inside its grid.
 
 \subsection{Snapshots}\label{sec:snapshots}
 
 To see what the weights hold at a given point of a stream, we take \emph{snapshots}: the learner's weights are copied and the copy, kept frozen, scores text outside the stream, while the learner continues reading unaffected.
 For forgetting, snapshots are taken every 40 chunks and scored on the held-out sets.
-For eviction (Section~\ref{sec:eviction}), each of 20 main-set books A is split into a first half A1 (40 chunks) and a second half A2 (38 chunks), and gets a stream of its own, read from the pretrained weights: A1 followed by $I$ tokens of PG-19 validation books.
-At the end of this stream a snapshot scores A2 and the same span C2 of a control book C that the learner never read.
+For eviction (Section~\ref{sec:eviction}), the book A of each eviction stream is split into a first half A1 (40 chunks) and a second half A2 (38 chunks); the stream is A1 followed by $I$ tokens of PG-19 validation books, and at its end a snapshot scores A2 and the same span C2 of a control book C that the learner never read.
 
 \subsection{Metrics}
 
 The \emph{gain} measures how much dynamic evaluation helps: the frozen loss minus the loss under dynamic evaluation on the same tokens of the stream, in nats/token, always against the model's own frozen loss.
 To see where the gain comes from, \emph{distance bins} group tokens by how far back in the stream the same token id last occurred: in the same chunk (visible to attention), in an earlier chunk less than 1k, 1k to 10k, 10k to 100k or at least 100k tokens back, or never.
 The 1000 most frequent ids are left out of the earlier-chunk bins, which are further split by whether the previous occurrence was in the same book or an earlier one.
-\emph{Locality} is the part of the gain that requires the reading order: the gain on a stream in reading order minus the gain on the same chunks shuffled.
+The \emph{locality gain} is the part of the gain that requires the reading order: the gain on a stream in reading order minus the gain on the same chunks shuffled.
 In the eviction experiment, the \emph{memory of A} is what a snapshot still knows about book A beyond general adaptation: its gain on A2 minus its gain on C2.
 \emph{Forgetting} is the loss of general knowledge: a snapshot's loss on a held-out set minus that of the pretrained model, averaged over the snapshots in the second half of the stream, so that positive values mean knowledge lost.
 Finally, the \emph{exchange rate} relates the two: a run's gain on the stream divided by its WikiText forgetting.
@@ -236,13 +231,13 @@ The gain falls with distance: \gainInOrderOneKPM{} for rare tokens last seen les
 Tokens never seen before lose \gainInOrderNeverPM{}, and tokens repeated within their own chunk lose \gainInOrderSameChunkPM{}.
 Within a book the gain grows from \posGainFirstPM{} in its first 1k tokens to \posGainLastPM{} in its last 1k, while the shuffled learner's gain stays between \posShuffledMin{} and \posShuffledMax{} (Figure~\ref{fig:distance}b).
 
-Shuffling keeps \shuffledShareAll{} of the overall gain, but only \shuffledShareOneK{} less than 1k tokens back and \shuffledShareTenK{} between 1k and 10k (locality \localityOneKPM{} and \localityTenKPM{}).
+Shuffling keeps \shuffledShareAll{} of the overall gain, but only \shuffledShareOneK{} less than 1k tokens back and \shuffledShareTenK{} between 1k and 10k (locality gain \localityOneKPM{} and \localityTenKPM{}).
 Most of the overall gain is therefore adaptation to PG-19 text in general, and most of the long-range gain needs the order.
 
 \begin{table}[t]
 \centering\footnotesize\setlength{\tabcolsep}{3.5pt}
 \input{tables/distance}
-\caption{Gain over frozen Pythia-14M by distance to the token's previous occurrence (nats/token, $\pm$ SE over 25 books). Dynamic evaluation: plain SGD on all parameters, lr $10^{-4}$, in reading order ($K=1$) and with the chunks shuffled; locality = in order $-$ shuffled. Unigram cache: frozen model mixed with a decaying token-count cache; where the cache has no count for a token, mixing it in costs exactly $-\log 0.95 = 0.051$ nats, so those bins have a constant loss and an SE of 0. $\dagger$: under 2 SE.}
+\caption{Gain over frozen Pythia-14M by distance to the token's previous occurrence (nats/token, $\pm$ SE over 25 books). Dynamic evaluation: plain SGD on all parameters, lr $10^{-4}$, in reading order ($K=1$) and with the chunks shuffled; locality gain = in order $-$ shuffled. Unigram cache: frozen model mixed with a decaying token-count cache; where the cache has no count for a token, mixing it in costs exactly $-\log 0.95 = 0.051$ nats, so those bins have a constant loss and an SE of 0. $\dagger$: under 2 SE.}
 \label{tab:distance}
 \end{table}
 
@@ -256,8 +251,8 @@ Most of the overall gain is therefore adaptation to PG-19 text in general, and m
 \paragraph{The current book.}
 A token may be predicted better because it was seen recently, or because it belongs to the book being read.
 Splitting the earlier-chunk bins by book separates the two (Table~\ref{tab:samebook}).
-Between 1k and 10k tokens back, the locality is \localityTenKSamePM{} for tokens last seen in the same book and \localityTenKEarlierPM{} for tokens last seen in an earlier book.
-Between 10k and 100k tokens back, same-book tokens keep \localityHundredKSamePM{} of locality and earlier-book tokens have none (\localityHundredKEarlierPM{}).
+Between 1k and 10k tokens back, the locality gain is \localityTenKSamePM{} for tokens last seen in the same book and \localityTenKEarlierPM{} for tokens last seen in an earlier book.
+Between 10k and 100k tokens back, same-book tokens keep \localityHundredKSamePM{} of locality gain and earlier-book tokens have none (\localityHundredKEarlierPM{}).
 The memory is tied mostly to the current book, although distance still matters within it.
 
 \begin{table}[t]
@@ -302,7 +297,7 @@ The strongest is layer \layerBest{} (\layerBestOneKPM{}, paired difference with 
 \paragraph{MLPs only against all parameters.}
 A larger gain could come from a stronger cache or from better general adaptation, and a stronger cache might cost more general knowledge.
 We read the shuffled stream with both learners and probe both with snapshots (Table~\ref{tab:mlpfull}).
-Updating only the MLPs gives more locality: \mvfMlpLocOneKPM{} against \mvfFullLocOneKPM{} less than 1k tokens back (paired difference \mvfDiffLocOneKPM{}) and \mvfMlpLocTenKPM{} against \mvfFullLocTenKPM{} between 1k and 10k, same book (\mvfDiffLocTenKPM{}).
+Updating only the MLPs gives more locality gain: \mvfMlpLocOneKPM{} against \mvfFullLocOneKPM{} less than 1k tokens back (paired difference \mvfDiffLocOneKPM{}) and \mvfMlpLocTenKPM{} against \mvfFullLocTenKPM{} between 1k and 10k, same book (\mvfDiffLocTenKPM{}).
 Shuffled, it gains slightly less overall (\mvfDiffShuffledAllPM{}).
 It also forgets more: WikiText forgetting is \mvfMlpWikiPM{} against \mvfFullWikiPM{} (paired \mvfDiffWikiPM{}), and the held-out books lose \mvfDiffBooksPM{} more (paired), although neither run's own value on them is beyond 2 SE.
 Its exchange rate is lower: \mvfMlpExchange{} against \mvfFullExchange{} in order, \mvfMlpExchangeSh{} against \mvfFullExchangeSh{} shuffled.
@@ -314,7 +309,7 @@ A possible reason, not tested: with plain SGD at 14M, attention takes \shareAttn
 \begin{table}[t]
 \centering\footnotesize\setlength{\tabcolsep}{3.5pt}
 \input{tables/mlp_vs_full}
-\caption{Pythia-14M with plain SGD updating only the MLPs or all parameters, each at its own val-pick learning rate. Gain shuffled and locality (in order $-$ shuffled) by distance bin, $\pm$ SE over books; forgetting (snapshot $-$ pretrained loss, mean over the second half of the stream) on detokenized WikiText and the 6 held-out books, $\pm$ SE over held-out chunks or books; exchange rate = stream gain / WikiText forgetting. Last column: paired difference. The in-order gains are in Table~\ref{tab:layers}. $\dagger$: under 2 SE.}
+\caption{Pythia-14M with plain SGD updating only the MLPs or all parameters, each at its own val-pick learning rate. Gain shuffled and locality gain (in order $-$ shuffled) by distance bin, $\pm$ SE over books; forgetting (snapshot $-$ pretrained loss, mean over the second half of the stream) on detokenized WikiText and the 6 held-out books, $\pm$ SE over held-out chunks or books; exchange rate = stream gain / WikiText forgetting. Last column: paired difference. The in-order gains are in Table~\ref{tab:layers}. $\dagger$: under 2 SE.}
 \label{tab:mlpfull}
 \end{table}
 
@@ -325,7 +320,7 @@ We read the same chunks with more and more books interleaved, and the long books
 
 With plain SGD on all parameters at lr $10^{-4}$, the gain falls at every step: \levelLongPM{} on the long books, \levelKOnePM{} with $K=1$, \levelKFivePM{} with $K=5$, \levelKTwentyFivePM{} with $K=25$ and \levelShuffledPM{} shuffled.
 On the main set the paired drops are \dropKFivePM{} from $K=1$ to $K=5$, \dropKTwentyFivePM{} from $K=5$ to $K=25$ and \dropShuffledPM{} from $K=25$ to shuffled; interleaving only 5 books removes most of the in-order advantage.
-The long books are other books than the main set, so the step from them to $K=1$ is not paired.
+The long stream covers mostly different text (all 5 books are in the main set, but only their first 20k tokens), so the step from it to $K=1$ is not paired.
 
 \subsection{Eviction}\label{sec:eviction}
 
@@ -370,43 +365,43 @@ With plain SGD, a learning rate small enough for some weights may be too small f
 We log the size of each update and compare three update rules at three sizes, each with its own learning rate (Table~\ref{tab:rules}, Figure~\ref{fig:rules}).
 
 Over the first 40 chunks, plain SGD at each size's pick moves the MLP weights by \relMlpFourteen{} of their norm per step at 14M, \relMlpThirtyOne{} at 31M and \relMlpSeventy{} at 70M, about \mlpStepRatio{} times less at 70M than at 14M; at 70M attention takes \shareAttnSeventy{} of the squared update norm and the MLPs \shareMlpSeventy{}.
-With plain SGD, Pythia-70M gains \rGainSgdSeventyPM{} and has almost no locality (\rLocOneKSgdSeventyPM{} less than 1k tokens back).
-Normalized SGD more than doubles 70M's gain (\rGainNsgdSeventyPM{}; paired difference \nsgdMinusSgdGainSeventyPM{}) and gives it locality (\rLocOneKNsgdSeventyPM{}), still far less than at 14M and 31M under the same rule (\rLocOneKNsgdFourteenPM{} and \rLocOneKNsgdThirtyOnePM{}), which are the largest of any rule.
-Adam has no cache at any size: its locality less than 1k tokens back is \rLocOneKAdamFourteenPM{} at 14M, \rLocOneKAdamThirtyOnePM{} at 31M and \rLocOneKAdamSeventyPM{} at 70M.
+With plain SGD, Pythia-70M gains \rGainSgdSeventyPM{} and has almost no locality gain (\rLocOneKSgdSeventyPM{} less than 1k tokens back).
+Normalized SGD more than doubles 70M's gain (\rGainNsgdSeventyPM{}; paired difference \nsgdMinusSgdGainSeventyPM{}) and gives it locality gain (\rLocOneKNsgdSeventyPM{}), still far less than at 14M and 31M under the same rule (\rLocOneKNsgdFourteenPM{} and \rLocOneKNsgdThirtyOnePM{}), which are the largest of any rule.
+Adam has no cache at any size: its locality gain less than 1k tokens back is \rLocOneKAdamFourteenPM{} at 14M, \rLocOneKAdamThirtyOnePM{} at 31M and \rLocOneKAdamSeventyPM{} at 70M.
 
-From 14M to 31M, plain SGD's locality does not change beyond noise (31M $-$ 14M: \locDiffThirtyOneFourteenOneKPM{} less than 1k tokens back, \locDiffThirtyOneFourteenAllPM{} overall; SE unpaired across models); it falls at 70M under every rule.
+From 14M to 31M, plain SGD's locality gain does not change beyond noise (31M $-$ 14M: \locDiffThirtyOneFourteenOneKPM{} less than 1k tokens back, \locDiffThirtyOneFourteenAllPM{} overall; SE unpaired across models); it falls at 70M under every rule.
 The smaller model does not pay more general knowledge per nat of gain: the exchange rate at 14M is \rExchangeSgdFourteen{}, \rExchangeAdamFourteen{} and \rExchangeNsgdFourteen{} (plain SGD, Adam, normalized SGD), against \rExchangeSgdThirtyOne{}, \rExchangeAdamThirtyOne{} and \rExchangeNsgdThirtyOne{} at 31M.
 At 70M it is \rExchangeSgdSeventy{}, \rExchangeAdamSeventy{} and \rExchangeNsgdSeventy{}, with much smaller gains.
 
 \begin{table}[t]
 \centering\footnotesize\setlength{\tabcolsep}{2.8pt}
 \resizebox{\linewidth}{!}{\input{tables/rules}}
-\caption{Three update rules at three sizes, all parameters, each at its val-pick learning rate: gain with $K=1$ over each model's frozen loss and locality (in order $-$ shuffled, paired), $\pm$ SE over books; WikiText forgetting ($K=1$, second half of the stream, $\pm$ SE over chunks); exchange rate (stream gain / WikiText forgetting) in order and shuffled. $\dagger$: under 2 SE.}
+\caption{Three update rules at three sizes, all parameters, each at its val-pick learning rate: gain with $K=1$ over each model's frozen loss and locality gain (in order $-$ shuffled, paired; ``loc.\ gain'' in the header), $\pm$ SE over books; WikiText forgetting ($K=1$, second half of the stream, $\pm$ SE over chunks); exchange rate (stream gain / WikiText forgetting) in order and shuffled. $\dagger$: under 2 SE.}
 \label{tab:rules}
 \end{table}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.8\linewidth]{figures/rules_size.pdf}
-\caption{(a) Locality less than 1k tokens back against model size for three update rules, each at its own learning rate, $\pm 1$ SE over books. (b) Exchange rate (stream gain / WikiText forgetting, $K=1$; log scale).}
+\caption{(a) Locality gain less than 1k tokens back against model size for three update rules, each at its own learning rate, $\pm 1$ SE over books. (b) Exchange rate (stream gain / WikiText forgetting, $K=1$; log scale).}
 \label{fig:rules}
 \end{figure}
 
 \subsection{A trade-off between cache and general knowledge}\label{sec:tradeoff}
 
 If the cache and general knowledge share the same weights, filling one should erode the other.
-We place every run with snapshots on two axes: how much cache it has (locality less than 1k tokens back) and how much WikiText it forgets (Figure~\ref{fig:tradeoff}).
+We place every run with snapshots on two axes: how much cache it has (locality gain less than 1k tokens back) and how much WikiText it forgets (Figure~\ref{fig:tradeoff}).
 
 Within 14M the order is the same on both axes: Adam (\rLocOneKAdamFourteen{}, \rWikiAdamFourteen{}), plain SGD on all parameters (\rLocOneKSgdFourteen{}, \rWikiSgdFourteen{}), plain SGD on the MLPs only (\mvfMlpLocOneK{}, \mvfMlpWiki{}) and normalized SGD (\rLocOneKNsgdFourteen{}, \rWikiNsgdFourteen{}).
 Within 31M the same holds for Adam, plain SGD and normalized SGD.
-At 70M plain SGD and normalized SGD follow it, but Adam forgets more than both (\rWikiAdamSeventyPM{}) with negative locality.
-Across sizes the points do not lie on one curve: at 70M every rule forgets far less for a given locality.
+At 70M plain SGD and normalized SGD follow it, but Adam forgets more than both (\rWikiAdamSeventyPM{}) with negative locality gain.
+Across sizes the points do not lie on one curve: at 70M every rule forgets far less for a given locality gain.
 With ten points, one seed and one model family, this is a consistent ordering within the 14M and 31M settings we tried, not a law, and it does not hold for Adam at 70M.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.62\linewidth]{figures/tradeoff.pdf}
-\caption{Locality less than 1k tokens back against WikiText forgetting ($K=1$, second half of the stream) for every run with snapshots: three update rules (marker) at three sizes (colour) on all parameters, and plain SGD on the MLPs only at 14M (open circle); each at its own learning rate. Bars: $\pm 1$ SE.}
+\caption{Locality gain less than 1k tokens back against WikiText forgetting ($K=1$, second half of the stream) for every run with snapshots: three update rules (marker) at three sizes (colour) on all parameters, and plain SGD on the MLPs only at 14M (open circle); each at its own learning rate. Bars: $\pm 1$ SE.}
 \label{fig:tradeoff}
 \end{figure}
 
@@ -443,7 +438,7 @@ Yes for the memory of a specific book: it halves after a few thousand tokens of 
 Unlike a cache, filling it overwrites general knowledge outside the domain: WikiText forgetting is about twice the gain on the stream, and within 14M and 31M a stronger cache forgets more (Sections~\ref{sec:forgetting} and~\ref{sec:tradeoff}).
 
 \paragraph{Is the effect larger in small models?}
-Not between 14M and 31M: locality does not change beyond noise, and 14M does not pay more forgetting per nat of gain.
+Not between 14M and 31M: locality gain does not change beyond noise, and 14M does not pay more forgetting per nat of gain.
 70M has less cache, but how much depends on the update rule and the step size it allows (Section~\ref{sec:rules}).
 
 \paragraph{Is there a knob?}
@@ -466,7 +461,7 @@ Eviction is fast at first and slow later, closer to a power law than to an expon
 \item \textbf{Three sizes of one family.} Pythia-14M, 31M and 70M only.
 \item \textbf{One kind of data.} PG-19 books only; WikiText is the only out-of-domain text, and forgetting is measured on 76 WikiText chunks and 6 books.
 \item \textbf{No full-context baseline.} Chunks of 256 tokens are scored without earlier context; a model with its full context window would see more of the recent past through attention.
-\item \textbf{Learning rates.} Rates are picked on mean validation loss, not on locality, and different subsets and sizes use different rates, so comparisons across them mix in the rate.
+\item \textbf{Learning rates.} Rates are picked on mean validation loss, not on locality gain, and different subsets and sizes use different rates, so comparisons across them mix in the rate.
 \item \textbf{Wall time is not compute.} We did not measure compute; dynamic-evaluation runs update after every chunk, frozen runs do not.
 \item \textbf{Overlapping sets.} All 5 long books and 2 of the 4 very long books are also in the main set.
 \end{itemize}

@@ -32,7 +32,7 @@
 \maketitle
 
 \begin{abstract}
-Dynamic evaluation and test-time training let a language model keep learning from the text it reads at inference time. The cost is forgetting, as each update can overwrite earlier knowledge, and this is usually treated as a problem. However, the inputs a model receives at inference time (e.g. a book or a code base) often show some degree of temporal locality, i.e. recently seen content is likely to be seen again. In a small model, with little room in its weights, locality could make forgetting useful, so that together they could be exploited to obtain the behaviour of a cache memory. The weights would hold the recent context beyond the window, and new material would push out old material. We ask whether this cache behaviour arises on its own in a standard transformer that takes plain gradient steps as it reads. We test this with small Pythia models reading PG-19 books. We split the books into short chunks and score each one without the preceding text in context, so any help from earlier chunks must come through the weights. We then compare reading the chunks in order with reading them shuffled, which removes their locality. We find support for the cache hypothesis. The weights hold a memory of the current book beyond the attention window, stored mostly in the MLPs. This memory depends on the order of the input and fades as other books are read, halving within a few thousand tokens. As expected, it competes with general knowledge for the same weights. Knowledge of the same domain is largely preserved, while out-of-domain text is partly forgotten, and a stronger cache is hard to get without more of this forgetting. Decoupling the two could give a stronger cache and a better use of temporal locality, reducing the model size required for a given performance.
+Dynamic evaluation and test-time training let a language model keep learning from the text it reads at inference time. The cost is forgetting, as each update can overwrite earlier knowledge, and this is usually treated as a problem. However, the inputs a model receives at inference time (e.g. a book or a code base) often show some degree of temporal locality, i.e. recently seen content is likely to be seen again. In a small model, with little room in its weights, locality could make forgetting useful, so that together they could be exploited to obtain the behaviour of a cache memory. The weights would hold the recent context beyond the window, and new material would push out old material. We ask whether this cache behaviour arises on its own in a standard transformer that takes plain gradient steps as it reads. We test this with small Pythia models reading PG-19 books. We split the books into short chunks and score each one without the preceding text in context, so any help from earlier chunks must come through the weights. We then compare reading the chunks in order with reading them shuffled, which removes their locality. We find support for the cache hypothesis. The weights hold a memory of the current book beyond the attention window, stored mostly in the MLPs. This memory depends on the order of the input and fades as other books are read, halving within a few thousand tokens. As expected, it competes with general knowledge for the same weights. Knowledge of the same domain is largely preserved, while out-of-domain text is partly forgotten, and a stronger cache is hard to get without more collateral forgetting. Decoupling the two could give a stronger cache and a better use of temporal locality, reducing the model size required for a given performance.
 \end{abstract}
 
 \section{Introduction}
@@ -52,7 +52,7 @@ We ask whether this cache behaviour arises on its own in a standard transformer 
 If it does, three things should be true.
 The benefit should depend on \emph{locality}: it should be larger when the input stays on the same material than when the same text arrives in a random order.
 New material should push out old material, which we call \emph{eviction}; this is the useful side of forgetting.
-And the cache should leave the knowledge the model already had largely intact; we call the loss of that general knowledge, the harmful side, simply \emph{forgetting} from now on.
+And the cache should leave the knowledge the model already had largely intact; we call the loss of that general knowledge, the harmful side, \emph{collateral forgetting}.
 
 We test this with small Pythia models \cite{biderman2023pythia} reading PG-19 books \cite{rae2020compressive}.
 We split the books into chunks of 256 tokens and score each one on its own, without the previous chunks in the context, so anything that helps from further back must come through the weights.
@@ -65,7 +65,7 @@ Our contributions are as follows.
 \item We measure the reach of the memory and its dependence on input locality, and compare it with a token-count cache (Sections~\ref{sec:local} and~\ref{sec:levels}).
 \item We locate where in the network the memory is stored (Section~\ref{sec:where}).
 \item We measure how fast other text evicts the memory, and how much general knowledge, inside and outside the domain, is forgotten (Sections~\ref{sec:eviction} and~\ref{sec:forgetting}).
-\item We study how the update rule and the model size affect the cache and its forgetting, and the trade-off between the two (Sections~\ref{sec:rules} and~\ref{sec:tradeoff}).
+\item We study how the update rule and the model size affect the cache and its collateral forgetting, and the trade-off between the two (Sections~\ref{sec:rules} and~\ref{sec:tradeoff}).
 \item We assess what dynamic evaluation is worth against a larger frozen model on long books (Section~\ref{sec:long}).
 \end{itemize}
 
@@ -108,7 +108,7 @@ This catastrophic interference was first documented in connectionist networks tr
 Large language models lose general capabilities during continual fine-tuning \cite{luo2023empirical}, models updated by dynamic evaluation degrade on older text \cite{lazaridou2021mind}, and knowledge acquired during pretraining decays as a power law of subsequent training steps \cite{chang2024how}.
 Much of this knowledge appears to reside in the feed-forward layers \cite{geva2021transformer,meng2022locating}.
 Forgetting may also be adaptive, reflecting the decreasing probability that an item will be needed again \cite{anderson1991reflections}; a cache relies on the same assumption, and its limited capacity can follow a changing context only by evicting what is no longer in use.
-We therefore measure both the eviction of a book's memory and the loss of general knowledge in the same runs (Sections~\ref{sec:eviction}, \ref{sec:forgetting} and~\ref{sec:tradeoff}).
+We therefore measure both the eviction of a book's memory and the loss of general knowledge (collateral forgetting) in the same runs (Sections~\ref{sec:eviction}, \ref{sec:forgetting} and~\ref{sec:tradeoff}).
 
 \section{Setup}\label{sec:setup}
 
@@ -145,7 +145,7 @@ If the weights act as a cache of the current context, the gain should grow the l
 The main streams can test this only in one direction: their most local order, book after book, still changes book every 20k tokens, and the other orders lower locality further by interleaving books.
 The \emph{long} stream tests the other direction.
 It holds 5 test books of 100k tokens (390 chunks each), read book after book, so that the input stays on the same book five times longer and most tokens are read with tens of thousands of tokens of the same book already behind them; it forms the most local step of the comparison in Section~\ref{sec:levels}.
-The \emph{very long} stream, 4 test books of 200k tokens (781 chunks each), also read book after book, compares dynamic evaluation with a larger frozen model over a whole long book (Section~\ref{sec:long}) and tracks forgetting over the longest stream (Section~\ref{sec:forgetting}).
+The \emph{very long} stream, 4 test books of 200k tokens (781 chunks each), also read book after book, compares dynamic evaluation with a larger frozen model over a whole long book (Section~\ref{sec:long}) and tracks collateral forgetting over the longest stream (Section~\ref{sec:forgetting}).
 Both hold fewer books than the main set, so their standard errors are wider.
 All 5 long books and 2 of the 4 very long books also appear in the main set, cut there to their first 78 chunks.
 
@@ -168,7 +168,7 @@ stream & books & chunks & order & used for \\
 \midrule
 main ($K=1, 5, 25$, shuffled) & 25 test, 20k tokens each & 1{,}950 & four orders & locality, most results \\
 long & 5 test, 100k tokens each & 1{,}950 & book after book & locality on longer books \\
-very long & 4 test, 200k tokens each & 3{,}124 & book after book & larger frozen model, forgetting \\
+very long & 4 test, 200k tokens each & 3{,}124 & book after book & larger frozen model, collateral forgetting \\
 val-pick & 10 validation, 20k tokens each & 780 & book after book & learning rates only \\
 eviction (one per book) & half a test book, then others & varies & in order & eviction \\
 \bottomrule
@@ -201,7 +201,7 @@ The grid is extended until both neighbours of the best value have been tried, so
 \subsection{Snapshots}\label{sec:snapshots}
 
 To see what the weights hold at a given point of a stream, we take \emph{snapshots}: the learner's weights are copied and the copy, kept frozen, scores text outside the stream, while the learner continues reading unaffected.
-For forgetting, snapshots are taken every 40 chunks and scored on the held-out sets.
+For collateral forgetting, snapshots are taken every 40 chunks and scored on the held-out sets.
 For eviction (Section~\ref{sec:eviction}), the book A of each eviction stream is split into a first half A1 (40 chunks) and a second half A2 (38 chunks); the stream is A1 followed by $I$ tokens of PG-19 validation books, and at its end a snapshot scores A2 and the same span C2 of a control book C that the learner never read.
 
 \subsection{Metrics}
@@ -211,12 +211,12 @@ To see where the gain comes from, \emph{distance bins} group tokens by how far b
 The 1000 most frequent ids are left out of the earlier-chunk bins, which are further split by whether the previous occurrence was in the same book or an earlier one.
 The \emph{locality gain} is the part of the gain that requires the reading order: the gain on a stream in reading order minus the gain on the same chunks shuffled.
 In the eviction experiment, the \emph{memory of A} is what a snapshot still knows about book A beyond general adaptation: its gain on A2 minus its gain on C2.
-\emph{Forgetting} is the loss of general knowledge: a snapshot's loss on a held-out set minus that of the pretrained model, averaged over the snapshots in the second half of the stream, so that positive values mean knowledge lost.
-Finally, the \emph{exchange rate} relates the two: a run's gain on the stream divided by its WikiText forgetting.
+\emph{Collateral forgetting} is the loss of general knowledge: a snapshot's loss on a held-out set minus that of the pretrained model, averaged over the snapshots in the second half of the stream, so that positive values mean knowledge lost.
+Finally, the \emph{exchange rate} relates the two: a run's gain on the stream divided by its collateral forgetting on WikiText.
 
 Means are taken over tokens.
 Standard errors (SE) are computed over books, from per-book means or, when two runs read the same chunks, from paired per-book differences; books with fewer than 50 tokens in a bin are left out.
-For forgetting, SE are computed over the WikiText chunks or the 6 held-out books.
+For collateral forgetting, SE are computed over the WikiText chunks or the 6 held-out books.
 A $\dagger$ marks a value under 2 SE, which we do not treat as a difference.
 
 \section{Results}
@@ -299,7 +299,7 @@ A larger gain could come from a stronger cache or from better general adaptation
 We read the shuffled stream with both learners and probe both with snapshots (Table~\ref{tab:mlpfull}).
 Updating only the MLPs gives more locality gain: \mvfMlpLocOneKPM{} against \mvfFullLocOneKPM{} less than 1k tokens back (paired difference \mvfDiffLocOneKPM{}) and \mvfMlpLocTenKPM{} against \mvfFullLocTenKPM{} between 1k and 10k, same book (\mvfDiffLocTenKPM{}).
 Shuffled, it gains slightly less overall (\mvfDiffShuffledAllPM{}).
-It also forgets more: WikiText forgetting is \mvfMlpWikiPM{} against \mvfFullWikiPM{} (paired \mvfDiffWikiPM{}), and the held-out books lose \mvfDiffBooksPM{} more (paired), although neither run's own value on them is beyond 2 SE.
+It also has more collateral forgetting: on WikiText it is \mvfMlpWikiPM{} against \mvfFullWikiPM{} (paired \mvfDiffWikiPM{}), and the held-out books lose \mvfDiffBooksPM{} more (paired), although neither run's own value on them is beyond 2 SE.
 Its exchange rate is lower: \mvfMlpExchange{} against \mvfFullExchange{} in order, \mvfMlpExchangeSh{} against \mvfFullExchangeSh{} shuffled.
 
 The two learners use different learning rates, each its own val-pick (val-pick loss \valPickMlp{} for the MLPs at $3\times10^{-4}$ and \valPickAll{} for all parameters at $10^{-4}$).
@@ -309,7 +309,7 @@ A possible reason, not tested: with plain SGD at 14M, attention takes \shareAttn
 \begin{table}[t]
 \centering\footnotesize\setlength{\tabcolsep}{3.5pt}
 \input{tables/mlp_vs_full}
-\caption{Pythia-14M with plain SGD updating only the MLPs or all parameters, each at its own val-pick learning rate. Gain shuffled and locality gain (in order $-$ shuffled) by distance bin, $\pm$ SE over books; forgetting (snapshot $-$ pretrained loss, mean over the second half of the stream) on detokenized WikiText and the 6 held-out books, $\pm$ SE over held-out chunks or books; exchange rate = stream gain / WikiText forgetting. Last column: paired difference. The in-order gains are in Table~\ref{tab:layers}. $\dagger$: under 2 SE.}
+\caption{Pythia-14M with plain SGD updating only the MLPs or all parameters, each at its own val-pick learning rate. Gain shuffled and locality gain (in order $-$ shuffled) by distance bin, $\pm$ SE over books; collateral forgetting (snapshot $-$ pretrained loss, mean over the second half of the stream) on detokenized WikiText and the 6 held-out books, $\pm$ SE over held-out chunks or books; exchange rate = stream gain / collateral forgetting on WikiText. Last column: paired difference. The in-order gains are in Table~\ref{tab:layers}. $\dagger$: under 2 SE.}
 \label{tab:mlpfull}
 \end{table}
 
@@ -340,7 +340,7 @@ A power law in $I$ fits the memory better than an exponential with a floor ($\ch
 \label{fig:eviction}
 \end{figure}
 
-\subsection{Forgetting}\label{sec:forgetting}
+\subsection{Collateral forgetting}\label{sec:forgetting}
 
 A cache should leave the rest of memory intact.
 We score frozen snapshots of the learner on text it never reads: WikiText, outside the domain, and unseen PG-19 books, inside it (Table~\ref{tab:forgetting}).
@@ -349,13 +349,13 @@ With plain SGD at lr $10^{-4}$, Pythia-14M reading the main set in order forgets
 On the held-out PG-19 books it loses nothing (\forgetBooksKOnePM{}).
 The shuffled learner forgets less on WikiText (\forgetWikiShuffledPM{}) and improves on the unseen books (\forgetBooksShuffledPM{}): the part of the gain that survives shuffling is adaptation to PG-19 text, and it carries over to unseen books.
 Reading in order forgets more than shuffled on both sets (shuffled $-$ in order: \shMinusKOneWikiPM{} on WikiText, \shMinusKOneBooksPM{} on the books), at about the same exchange rate (\exchangeKOne{} and \exchangeShuffled{}).
-On the very long set (800k tokens), WikiText forgetting averages \veryLongWikiBookOne{} over the snapshots taken in the first book and \veryLongWikiBookTwo{}, \veryLongWikiBookThree{} and \veryLongWikiBookFour{} in the next three: it levels off after the first book.
+On the very long set (800k tokens), collateral forgetting on WikiText averages \veryLongWikiBookOne{} over the snapshots taken in the first book and \veryLongWikiBookTwo{}, \veryLongWikiBookThree{} and \veryLongWikiBookFour{} in the next three: it levels off after the first book.
 There the held-out books also lose a little (\forgetBooksVeryLongPM{}).
 
 \begin{table}[t]
 \centering\footnotesize\setlength{\tabcolsep}{3.5pt}
 \input{tables/forgetting}
-\caption{Forgetting of held-out text by Pythia-14M with plain SGD on all parameters (lr $10^{-4}$): snapshot loss $-$ pretrained loss, mean over the snapshots in the second half of the stream, $\pm$ SE over the WikiText chunks or the 6 held-out books; positive means knowledge lost. Stream gain: over the frozen loss on the stream, $\pm$ SE over books. Exchange rate = stream gain / WikiText forgetting. $\dagger$: under 2 SE.}
+\caption{Collateral forgetting of held-out text by Pythia-14M with plain SGD on all parameters (lr $10^{-4}$): snapshot loss $-$ pretrained loss, mean over the snapshots in the second half of the stream, $\pm$ SE over the WikiText chunks or the 6 held-out books; positive means knowledge lost. Stream gain: over the frozen loss on the stream, $\pm$ SE over books. Exchange rate = stream gain / collateral forgetting on WikiText. $\dagger$: under 2 SE.}
 \label{tab:forgetting}
 \end{table}
 
@@ -376,14 +376,14 @@ At 70M it is \rExchangeSgdSeventy{}, \rExchangeAdamSeventy{} and \rExchangeNsgdS
 \begin{table}[t]
 \centering\footnotesize\setlength{\tabcolsep}{2.8pt}
 \resizebox{\linewidth}{!}{\input{tables/rules}}
-\caption{Three update rules at three sizes, all parameters, each at its val-pick learning rate: gain with $K=1$ over each model's frozen loss and locality gain (in order $-$ shuffled, paired; ``loc.\ gain'' in the header), $\pm$ SE over books; WikiText forgetting ($K=1$, second half of the stream, $\pm$ SE over chunks); exchange rate (stream gain / WikiText forgetting) in order and shuffled. $\dagger$: under 2 SE.}
+\caption{Three update rules at three sizes, all parameters, each at its val-pick learning rate: gain with $K=1$ over each model's frozen loss and locality gain (in order $-$ shuffled, paired; ``loc.\ gain'' in the header), $\pm$ SE over books; collateral forgetting on WikiText ($K=1$, second half of the stream, $\pm$ SE over chunks); exchange rate (stream gain / collateral forgetting on WikiText) in order and shuffled. $\dagger$: under 2 SE.}
 \label{tab:rules}
 \end{table}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.8\linewidth]{figures/rules_size.pdf}
-\caption{(a) Locality gain less than 1k tokens back against model size for three update rules, each at its own learning rate, $\pm 1$ SE over books. (b) Exchange rate (stream gain / WikiText forgetting, $K=1$; log scale).}
+\caption{(a) Locality gain less than 1k tokens back against model size for three update rules, each at its own learning rate, $\pm 1$ SE over books. (b) Exchange rate (stream gain / collateral forgetting on WikiText, $K=1$; log scale).}
 \label{fig:rules}
 \end{figure}
 
@@ -401,7 +401,7 @@ With ten points, one seed and one model family, this is a consistent ordering wi
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.62\linewidth]{figures/tradeoff.pdf}
-\caption{Locality gain less than 1k tokens back against WikiText forgetting ($K=1$, second half of the stream) for every run with snapshots: three update rules (marker) at three sizes (colour) on all parameters, and plain SGD on the MLPs only at 14M (open circle); each at its own learning rate. Bars: $\pm 1$ SE.}
+\caption{Locality gain less than 1k tokens back against collateral forgetting on WikiText ($K=1$, second half of the stream) for every run with snapshots: three update rules (marker) at three sizes (colour) on all parameters, and plain SGD on the MLPs only at 14M (open circle); each at its own learning rate. Bars: $\pm 1$ SE.}
 \label{fig:tradeoff}
 \end{figure}
 
@@ -435,14 +435,14 @@ Yes: the gain from more than 1k tokens back mostly disappears when the chunks ar
 
 \paragraph{Does it evict like a cache?}
 Yes for the memory of a specific book: it halves after a few thousand tokens of other books, with a long tail (Section~\ref{sec:eviction}).
-Unlike a cache, filling it overwrites general knowledge outside the domain: WikiText forgetting is about twice the gain on the stream, and within 14M and 31M a stronger cache forgets more (Sections~\ref{sec:forgetting} and~\ref{sec:tradeoff}).
+Unlike a cache, filling it overwrites general knowledge outside the domain: collateral forgetting on WikiText is about twice the gain on the stream, and within 14M and 31M a stronger cache forgets more (Sections~\ref{sec:forgetting} and~\ref{sec:tradeoff}).
 
 \paragraph{Is the effect larger in small models?}
-Not between 14M and 31M: locality gain does not change beyond noise, and 14M does not pay more forgetting per nat of gain.
+Not between 14M and 31M: locality gain does not change beyond noise, and 14M does not pay more collateral forgetting per nat of gain.
 70M has less cache, but how much depends on the update rule and the step size it allows (Section~\ref{sec:rules}).
 
 \paragraph{Is there a knob?}
-Partly: the parameter subset and the update rule move the size of the cache, but within 14M and 31M every setting we tried moves cache and forgetting together (Section~\ref{sec:tradeoff}).
+Partly: the parameter subset and the update rule move the size of the cache, but within 14M and 31M every setting we tried moves cache and collateral forgetting together (Section~\ref{sec:tradeoff}).
 No knob tested here separates the cache from general knowledge.
 
 \paragraph{Can a small model with dynamic evaluation replace a larger one?}
@@ -459,7 +459,7 @@ Eviction is fast at first and slow later, closer to a power law than to an expon
 \begin{itemize}
 \item \textbf{One seed.} Error bars are across books, not across models or runs.
 \item \textbf{Three sizes of one family.} Pythia-14M, 31M and 70M only.
-\item \textbf{One kind of data.} PG-19 books only; WikiText is the only out-of-domain text, and forgetting is measured on 76 WikiText chunks and 6 books.
+\item \textbf{One kind of data.} PG-19 books only; WikiText is the only out-of-domain text, and collateral forgetting is measured on 76 WikiText chunks and 6 books.
 \item \textbf{No full-context baseline.} Chunks of 256 tokens are scored without earlier context; a model with its full context window would see more of the recent past through attention.
 \item \textbf{Learning rates.} Rates are picked on mean validation loss, not on locality gain, and different subsets and sizes use different rates, so comparisons across them mix in the rate.
 \item \textbf{Wall time is not compute.} We did not measure compute; dynamic-evaluation runs update after every chunk, frozen runs do not.
@@ -491,11 +491,11 @@ The memory sits mostly in the MLPs.
 
 The third property holds only in part.
 Knowledge of the same domain is largely preserved, but the cache shares its weights with general knowledge, and filling it costs knowledge outside the domain: about \wikiOverGainKOne{} nats of WikiText loss per nat gained.
-The update rule and the set of weights being updated change how much cache a model gets, but within 14M and 31M every setting we tried moved cache and forgetting together.
+The update rule and the set of weights being updated change how much cache a model gets, but within 14M and 31M every setting we tried moved cache and collateral forgetting together.
 
-A standard transformer thus has a cache in its weights, but not a clean one: the useful forgetting that evicts old context comes bundled with the harmful forgetting of general knowledge.
+A standard transformer thus has a cache in its weights, but not a clean one: the eviction of old context comes bundled with the collateral forgetting of general knowledge.
 Even so, the cache already matters at this scale: on long books, a 14M-parameter model with dynamic evaluation closes \gapClosedFourteen{} of the gap to a frozen model about twice its size, and the cache behaves in the same way at both sizes.
-Separating useful from harmful forgetting, for instance with a dedicated fast part of the network, could strengthen the cache and make better use of temporal locality, moving towards small models that perform on the context at hand like larger ones.
+Separating eviction from collateral forgetting, for instance with a dedicated fast part of the network, could strengthen the cache and make better use of temporal locality, moving towards small models that perform on the context at hand like larger ones.
 
 {\small
 \setlength{\bibsep}{1.5pt plus 0.5pt}

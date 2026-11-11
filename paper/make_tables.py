@@ -40,6 +40,11 @@ def tex_lr(v):
     return "$%s10^{%d}$" % ("" if m == "1" else m + "\\!\\times\\!", int(e))
 
 
+def two_lines(top, bottom):
+    """A right-aligned two-line column header."""
+    return "\\begin{tabular}[b]{@{}r@{}}%s\\\\%s\\end{tabular}" % (top, bottom)
+
+
 def write(name, header, rows, colspec):
     lines = ["\\begin{tabular}{%s}" % colspec, "\\toprule", " & ".join(header) + " \\\\", "\\midrule"]
     lines += [" & ".join(r) + " \\\\" for r in rows]
@@ -117,8 +122,8 @@ def mlp_vs_full():
     bin_tex = {"all tokens": "all tokens", "earlier chunk, < 1k": "earlier, $<$ 1k",
                "earlier chunk, 1k-10k, same book": "1k-10k, same book", "never seen": "never seen",
                "K = 1": "$K=1$", "shuffled": "shuffled"}
-    names = {"locality": "locality gain", "WikiText forgetting, last half": "WikiText forgetting", "held-out books forgetting, last half":
-             "held-out books forgetting", "stream gain / WikiText forgetting (last half)": "exchange rate"}
+    names = {"locality": "locality gain", "WikiText forgetting, last half": "collateral forgetting, WikiText",
+             "held-out books forgetting, last half": "collateral forgetting, held-out books", "stream gain / WikiText forgetting (last half)": "exchange rate"}
     rows, last = [], None
     for r in rows_in:
         label = names.get(r["quantity"], r["quantity"]) if r["quantity"] != last else ""
@@ -151,7 +156,7 @@ def forgetting_table():
         r = next(x for x in read("e5_forgetting/summary.csv") if x["stream"] == st)
         rows.append([label, pm(r["stream_gain"], r["stream_gain_se"]), pm(r["wiki_last_half"], r["wiki_last_half_se"]),
                      pm(r["books_last_half"], r["books_last_half_se"]), r["exchange_rate"]])
-    write("forgetting", ["stream", "stream gain", "WikiText forgetting", "held-out books forgetting",
+    write("forgetting", ["stream", "stream gain", "collateral forgetting, WikiText", "collateral forgetting, held-out books",
                          "exchange rate"], rows, "lrrrr")
 
 
@@ -166,7 +171,7 @@ def rules():
                          pm(a["gain_K1"], a["gain_K1_se"]), pm(n["locality"], n["locality_se"]),
                          pm(a["locality"], a["locality_se"]), pm(e["wiki_forgetting_K1"], e["wiki_forgetting_K1_se"]),
                          e["exchange_rate_K1"], e["exchange_rate_shuffled"]])
-    write("rules", ["size", "rule", "lr", "gain, $K=1$", "loc. gain, $<$ 1k", "loc. gain, all", "WikiText forgetting",
+    write("rules", ["size", "rule", "lr", "gain, $K=1$", "loc. gain, $<$ 1k", "loc. gain, all", two_lines("collateral forgetting,", "WikiText"),
                     "exch. rate, $K=1$", "shuffled"], rows, "llrrrrrrr")
 
 

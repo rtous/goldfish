@@ -92,9 +92,9 @@ We instead restrict the context so that the past can only be held in the paramet
 Dynamic evaluation applies online learning to a trained model during evaluation: the parameters are updated by gradient descent on the portion of the sequence already observed, so that each token is predicted before it is trained on.
 It was first applied to recurrent language models \cite{mikolov2010recurrent,graves2013generating} and studied systematically by Krause et al.\ \cite{krause2018dynamic,krause2019dynamic}, who motivate it by the recurrence of patterns within a sequence and favour recent history through a decay towards the trained weights.
 Rannen-Triki et al.\ \cite{rannentriki2024revisiting} interpret it as a memory in the weights complementary to the context window, reset the weights at book boundaries, and show that under distribution shift a smaller model or context with online learning can offer a better trade-off between compute and loss than a larger static model.
-That dynamic evaluation benefits from temporal locality is thus the premise of this literature.
-Our contribution is to quantify it, comparing the same text in order and shuffled and decomposing the gain by the distance and book of each token's previous occurrence (Sections~\ref{sec:local} and~\ref{sec:levels}).
-We use neither decay nor resets, so that eviction can be measured directly (Section~\ref{sec:eviction}), and we compare against model size rather than compute (Section~\ref{sec:long}).
+That dynamic evaluation benefits from temporal locality is thus the premise of this literature, and the view of the adapted weights as a memory is already present in it. We make the kind of memory specific, a cache, which predicts properties that the premise alone does not: a dependence on locality, the eviction of old content, and the preservation of general knowledge. This also changes the role of forgetting.
+In prior work it is a cost to be contained, by decaying towards the trained weights or resetting them; in a cache, forgetting old context is what lets a limited capacity follow a changing input, and only the loss of general knowledge is a cost. We therefore use neither decay nor resets, and measure eviction separately from collateral forgetting (Sections~\ref{sec:eviction} and~\ref{sec:forgetting}).
+We quantify the dependence on locality by comparing the same text in order and shuffled and decomposing the gain by the distance and book of each token's previous occurrence (Sections~\ref{sec:local} and~\ref{sec:levels}). Finally, where prior work weighs online learning against compute, we weigh it against capacity: a small model need not hold permanently what it can cache, so we compare against model size (Section~\ref{sec:long}).
 
 \paragraph{Test-time training and fast weights.}
 Test-time training adapts a model to each test instance through a self-supervised objective \cite{sun2020test} and has inspired sequence layers and memory modules that learn as they read \cite{sun2024learning,behrouz2024titans}.
@@ -118,22 +118,23 @@ A model reads an \emph{input stream}: a single, ordered sequence of text that it
 Attention covers only the current chunk, so whatever the model can use from earlier parts of the stream must be carried in its weights.
 Under dynamic evaluation the model updates those weights as it reads; we call the updated model the \emph{learner}, and the frozen pretrained model reading the same stream without updates is the reference.
 The experiments differ in the streams they use, which vary in length and in how often their content recurs, and in what is measured on the updated weights along the way.
-After the models, we describe the streams and why each is needed, then how the learner reads them and what we measure.
 
 \subsection{Models}
 
 We use Pythia-14M, 31M and 70M \cite{biderman2023pythia}, with 14.07M, 30.49M and 70.43M parameters respectively; all three have 6 layers and share the same tokenizer, and all runs use float32 on CPU with seed 0.
+
+%\subsection{Models}
+
+%We use Pythia-14M, 31M and 70M \cite{biderman2023pythia}, with 14.07M, 30.49M and 70.43M parameters respectively; all three have 6 layers and share the same tokenizer, and all runs use float32 on CPU with seed 0. Pythia was trained on the Pile \cite{gao2020pile}, whose PG-19 component has 28{,}602 documents \cite{biderman2022datasheet}, the size of PG-19's training split. The PG-19 test and validation books we use are therefore very likely absent from Pythia's training data, so a gain on them comes from the stream rather than from pretraining, although the Pile's authors do not state this explicitly and we did not check for other copies of the books.
 
 \subsection{Input streams}
 
 All streams are built from books of PG-19 \cite{rae2020compressive}.
 Each book is tokenized on its own and cut into non-overlapping chunks of 256 tokens, the remainder dropped, so that no chunk spans two books.
 A stream is a set of such chunks placed in a fixed reading order.
-It is read without interruption: the learner starts from the pretrained weights at the beginning of the stream, and its weights are not reset between books, so a book is read with whatever the weights retain from the books before it.
+It is read without interruption: the learner starts from the pretrained weights at the beginning of the stream, and its weights are not reset between books, so a book is read with whatever the weights retain from the books before it. Different questions call for different streams, and we use four kinds, summarized in Table~\ref{tab:streams}.
 
-Different questions call for different streams, and we use four kinds, summarized in Table~\ref{tab:streams}.
-
-\paragraph{Main streams: the same text in different orders.}
+\paragraph{Main streams.}
 The central question is whether the learner exploits the temporal locality of text.
 Answering it requires streams that hold the same text in different orders, so that any difference between them is due to the order alone.
 The \emph{main set} consists of 25 test books, each cut to its first 78 chunks (19{,}968 tokens), 1{,}950 chunks in total.
@@ -141,7 +142,7 @@ Its chunks are arranged in four orders of decreasing locality: book after book (
 Cutting the books short keeps the stream at about 500k tokens while leaving 25 books to compute standard errors over, and each book is still long enough to measure what the learner retains from up to about 20k tokens back within it.
 Most results use the main streams, read in order and shuffled; the interleaved orders appear in Section~\ref{sec:levels}.
 
-\paragraph{Long streams: reading further into a book.}
+\paragraph{Long streams.}
 If the weights act as a cache of the current context, the gain should grow the longer the input stays on the same material.
 The main streams can test this only in one direction: their most local order, book after book, still changes book every 20k tokens, and the other orders lower locality further by interleaving books.
 The \emph{long} stream tests the other direction.
@@ -150,12 +151,12 @@ The \emph{very long} stream, 4 test books of 200k tokens (781 chunks each), also
 Both hold fewer books than the main set, so their standard errors are wider.
 All 5 long books and 2 of the 4 very long books also appear in the main set, cut there to their first 78 chunks.
 
-\paragraph{The val-pick stream: tuning without the test books.}
+\paragraph{The val-pick stream.}
 The learning rate has a different scale under each update rule, and the step a learner tolerates also depends on which parameters are updated and on model size, so each combination of rule, subset and size requires its own rate.
 To avoid selecting rates on the evaluation data, all rates are selected on a separate stream, \emph{val-pick}: 10 PG-19 validation books of 78 chunks each, read book after book, matching the main set in book length and reading order.
 No reported result uses val-pick.
 
-\paragraph{Eviction streams: one book, then other text.}
+\paragraph{Eviction streams.}
 A cache must also let go of old content as new content arrives.
 The main streams cannot measure this directly, because a book is never read again after the stream moves on, and the amount of other text read in between is not controlled.
 The eviction experiment therefore gives each of 20 main-set books its own short stream: the first half of the book, followed by a controlled amount of other books.
@@ -178,22 +179,18 @@ eviction (one per book) & half a test book, then others & varies & in order & ev
 \label{tab:streams}
 \end{table}
 
-\paragraph{Held-out text.}
+\paragraph{Held-out sets.}
 Updating the weights may also erase general knowledge the model had before reading the stream.
 The streams cannot measure this, since every chunk in them is trained on after it is scored.
 We therefore use two held-out sets that are never part of any stream and are never trained on: 76 chunks of the detokenized WikiText-103 test split \cite{merity2017pointer}, outside the domain, and 6 other PG-19 validation books of 15 chunks each, inside it.
 They are only scored, by frozen copies of the learner (Section~\ref{sec:snapshots}), so that losses on them measure knowledge lost, both of text unlike the books and of books like those being read.
-
-A gain on the test books could also come from text the model saw during pretraining rather than from the stream.
-Pythia was trained on the Pile \cite{gao2020pile}, whose PG-19 component has 28{,}602 documents \cite{biderman2022datasheet}, the size of PG-19's training split.
-The test books are therefore very likely absent from Pythia's training data, although the Pile's authors do not state this explicitly and we did not check for other copies of the books.
 
 \subsection{Dynamic evaluation}
 
 For each chunk, the learner first scores it and then takes one update step on the chunk's mean loss before moving on to the next, so every token is predicted before it is trained on.
 
 We compare three update rules.
-\emph{Plain SGD} uses no momentum or weight decay; \emph{Adam} \cite{kingma2015adam} starts each stream with a fresh optimizer state; and \emph{normalized SGD} moves every tensor by the same relative amount per step, $W \leftarrow W - \eta\, \lVert W\rVert\, g / \lVert g\rVert$.
+\emph{Plain SGD} uses no momentum or weight decay; \emph{Adam} \cite{kingma2015adam} starts each stream with a fresh optimizer state; and \emph{normalized SGD} moves every tensor by the same relative amount per step.
 All three update all parameters.
 In addition, some plain-SGD runs on Pythia-14M update only part of the model: the output embedding, everything but the output embedding, the MLPs of all layers, the attention of all layers, or the MLP of a single layer.
 Each learning rate is chosen on the val-pick stream as the value with the lowest mean loss under dynamic evaluation, from a grid of $1$ and $3$ times powers of ten.
@@ -222,7 +219,7 @@ A $\dagger$ marks a value under 2 SE, which we do not treat as a difference.
 
 \section{Results}
 
-\subsection{A memory beyond the window, and it is local}\label{sec:local}
+\subsection{In-order versus shuffled reading}\label{sec:local}
 
 If the updated weights hold a memory of the text, tokens seen recently in an earlier chunk should be predicted better, and the benefit should depend on the order of the chunks.
 We bin tokens by the distance to their previous occurrence and compare reading in order with reading the same chunks shuffled.
@@ -267,7 +264,7 @@ The memory is tied mostly to the current book, although distance still matters w
 A cache of recent token counts mixed into the frozen model ($p = 0.95\, p_\text{model} + 0.05\, p_\text{cache}$, counts halving every 1k tokens) is the simplest way to use the recent past.
 It is the better copier less than 1k tokens back (\gainUnigramOneKPM{} against \gainInOrderOneK{}), but from 1k tokens on dynamic evaluation gains more (\gainInOrderTenK{} against \gainUnigramTenKPM{} between 1k and 10k; paired difference \inOrderMinusUnigramTenKPM{}), and \inOrderMinusUnigramAllPM{} more overall (Table~\ref{tab:distance}).
 
-\subsection{Where the memory lives}\label{sec:where}
+\subsection{Location of the memory}\label{sec:where}
 
 If the memory sits in particular weights, updating only those should keep it.
 We update one part of Pythia-14M at a time, each part at its own learning rate (Table~\ref{tab:layers}).
@@ -314,7 +311,7 @@ A possible reason, not tested: with plain SGD at 14M, attention takes \shareAttn
 \label{tab:mlpfull}
 \end{table}
 
-\subsection{Locality as a variable}\label{sec:levels}
+\subsection{Levels of locality}\label{sec:levels}
 
 A cache should help more the longer the input stays on the same material.
 We read the same chunks with more and more books interleaved, and the long books in order (Figure~\ref{fig:layers}b).

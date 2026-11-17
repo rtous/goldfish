@@ -1,0 +1,16 @@
+bin,tokens,frozen_ctx0_loss,gain_frozen_ctx256,gain_frozen_ctx256_se,gain_frozen_ctx256_under_2se,gain_frozen_ctx768,gain_frozen_ctx768_se,gain_frozen_ctx768_under_2se,gain_frozen_ctx1792,gain_frozen_ctx1792_se,gain_frozen_ctx1792_under_2se,gain_online_ctx0,gain_online_ctx0_se,gain_online_ctx0_under_2se,gain_online_ctx1792,gain_online_ctx1792_se,gain_online_ctx1792_under_2se,online_ctx1792_minus_frozen_ctx1792,online_ctx1792_minus_frozen_ctx1792_se,online_ctx1792_minus_frozen_ctx1792_under_2se
+all tokens,497250,4.3926,0.1793,0.0059,False,0.2205,0.0083,False,0.2442,0.0100,False,0.0997,0.0057,False,0.2709,0.0115,False,0.0267,0.0032,False
+same chunk,9886,5.0064,0.0377,0.0150,False,0.0600,0.0177,False,0.0680,0.0203,False,-0.1105,0.0142,False,0.0116,0.0257,True,-0.0563,0.0111,False
+"earlier chunk, < 1k",17036,7.3354,1.0259,0.0480,False,1.4413,0.0664,False,1.5369,0.0732,False,0.3075,0.0113,False,1.6036,0.0759,False,0.0667,0.0085,False
+"earlier chunk, < 1k, same book",16967,7.3406,1.0293,0.0480,False,1.4464,0.0663,False,1.5423,0.0731,False,0.3079,0.0113,False,1.6089,0.0758,False,0.0666,0.0085,False
+"earlier chunk, < 1k, earlier book",69,6.0508,0.1751,nan,,0.1907,nan,,0.1907,nan,,0.1958,nan,,0.2902,nan,,0.0995,nan,
+"earlier chunk, 1k-10k",33973,6.9965,0.1282,0.0076,False,0.1452,0.0108,False,0.2599,0.0146,False,0.1440,0.0080,False,0.3140,0.0166,False,0.0540,0.0049,False
+"earlier chunk, 1k-10k, same book",29577,7.0263,0.1308,0.0076,False,0.1491,0.0109,False,0.2821,0.0162,False,0.1542,0.0084,False,0.3396,0.0181,False,0.0575,0.0053,False
+"earlier chunk, 1k-10k, earlier book",4396,6.7963,0.1110,0.0127,False,0.1184,0.0149,False,0.1108,0.0153,False,0.0757,0.0116,False,0.1418,0.0187,False,0.0310,0.0074,False
+"earlier chunk, 10k-100k",44109,7.1134,0.0989,0.0073,False,0.0992,0.0080,False,0.0933,0.0079,False,0.0090,0.0061,True,0.0883,0.0102,False,-0.0050,0.0049,True
+"earlier chunk, 10k-100k, same book",4798,6.9926,0.1061,0.0112,False,0.1081,0.0133,False,0.1068,0.0130,False,0.0603,0.0113,False,0.1204,0.0177,False,0.0136,0.0090,True
+"earlier chunk, 10k-100k, earlier book",39311,7.1282,0.0980,0.0078,False,0.0982,0.0082,False,0.0916,0.0083,False,0.0027,0.0062,True,0.0844,0.0106,False,-0.0072,0.0050,True
+"earlier chunk, >= 100k",13125,7.8240,0.0903,0.0120,False,0.0990,0.0138,False,0.0910,0.0146,False,-0.0392,0.0092,False,0.0619,0.0147,False,-0.0291,0.0066,False
+"earlier chunk, >= 100k, same book",0,nan,nan,nan,,nan,nan,,nan,nan,,nan,nan,,nan,nan,,nan,nan,
+"earlier chunk, >= 100k, earlier book",13125,7.8240,0.0903,0.0120,False,0.0990,0.0138,False,0.0910,0.0146,False,-0.0392,0.0092,False,0.0619,0.0147,False,-0.0291,0.0066,False
+never seen,20976,8.1898,0.0723,0.0060,False,0.0701,0.0062,False,0.0631,0.0074,False,-0.0586,0.0130,False,0.0296,0.0114,False,-0.0336,0.0094,False

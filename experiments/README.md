@@ -2,7 +2,7 @@
 
 Pythia-14M / 31M / 70M (CPU, float32, seed 0) learn PG-19 books online: each 256-token chunk is
 scored on its own, then the model takes one update step on it. These experiments support claims
-C1-C10 of the paper; each folder has a script, CSVs, plots, a README (question, setup, table,
+C1-C11 of the paper; each folder has a script, CSVs, plots, a README (question, setup, table,
 findings, caveats) and `runtime.txt`.
 
 ## Layout
@@ -11,7 +11,7 @@ findings, caveats) and `runtime.txt`.
   metrics (distance bins, SE over books, locality, forgetting), baselines (unigram cache), plots.
 - `runs.py`: the registry of every stream run (size, rule, lr, parameter subset, stream) and its
   runner; each run is saved once to `runs/<key>.npz` and read by the analyses.
-- `e0_lr_picks` ... `e7_update_rules`: one experiment each.
+- `e0_lr_picks` ... `e8_full_context`: one experiment each.
 - `REGRESSION.md`, `regression.csv`: saved output of a one-off comparison of old
   (`experiments_LLM2_cache/`, deleted; in the git history) against new.
 - `runs/` (about 37 MB) is committed on purpose, so that every `report` works without rerunning.
@@ -24,6 +24,7 @@ findings, caveats) and `runtime.txt`.
 ../venv/bin/python e0_lr_picks/e0_lr_picks.py run <group>  # groups 14m, 14m_subsets, 31m, 70m; then: report
 ../venv/bin/python runs.py worker                         # all registry runs; start up to 3 in parallel
 ../venv/bin/python e4_eviction/e4_eviction.py run          # E4 has its own runs
+../venv/bin/python e8_full_context/e8_full_context.py run a b  # E8 too (frozen with context, then 14M online)
 ../venv/bin/python e7_update_rules/e7_update_rules.py diag
 ../venv/bin/python eN_<name>/eN_<name>.py report          # each experiment's tables and plots
 ```
@@ -38,7 +39,8 @@ findings, caveats) and `runtime.txt`.
 | [e3_locality_levels](e3_locality_levels/README.md) | C6 | does the gain fall with locality? | yes, at every step: long +0.176 > K1 +0.100 > K5 +0.074 > K25 +0.065 > shuffled +0.062 | 8 min (+ E1's runs) |
 | [e4_eviction](e4_eviction/README.md) | C7 | how fast is a book's memory evicted by other books? | halves in about 6k tokens (+0.097 to +0.044 at 10k), long tail (+0.016 ± 0.008 at 300k); a power law fits better than an exponential | 55 min |
 | [e5_forgetting](e5_forgetting/README.md) | C8 | what does it cost in general knowledge? | WikiText forgetting about 2x the stream gain (exchange rate 0.51); nothing on held-out books read in order (-0.006 ± 0.010) | 59 min |
-| [e6_long_books](e6_long_books/README.md) | C9 | over 200k-token books, does 14M online reach frozen 31M? | closes 49% of the gap (79% at its peak), never reaches it; 31M online gains as much (+0.168) | 60 min |
+| [e6_long_books](e6_long_books/README.md) | C9 | over 200k-token books, does 14M online reach frozen 31M? | without context in the input: closes 49% of the gap (79% at its peak), never reaches it; 31M online gains as much (+0.168); with 1792 tokens of context, frozen 14M alone closes 68% (E8) | 60 min |
 | [e7_update_rules](e7_update_rules/README.md) | C10 | does the update rule decide the cache, across sizes? | plain SGD starves 70M's MLPs; normalized SGD recovers part of the cache; Adam has none at any size; smaller models do not forget more per nat | 8.5 h (3 parallel) |
+| [e8_full_context](e8_full_context/README.md) | C11 | with up to 1792 tokens of earlier context in the input, do the weights still hold memory beyond it? | yes, but less: online over frozen with the same context +0.041 ± 0.006 for same-book tokens last seen >= 2048 back (about a third of the gain without context), none across books (-0.010 ± 0.005), +0.027 overall; with context frozen 14M closes 68% of the 14M-31M gap on very long books, more than 14M online without context (49%) | 41 min |
 
 Runtimes are process time on the CPU, with shared runs counted once where they are first used.

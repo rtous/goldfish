@@ -1,0 +1,13 @@
+quantity,loss,gain_over_frozen14m_ctx0,gain_over_frozen14m_ctx0_se,gain_over_frozen14m_ctx0_under_2se,value,value_se,value_under_2se
+frozen14m_ctx0,4.4192,0.0000,0.0000,False,,,
+frozen14m_ctx1792,4.1802,0.2390,0.0125,False,,,
+online14m_ctx0,4.2490,0.1702,0.0110,False,,,
+frozen31m_ctx0,4.0686,0.3506,0.0102,False,,,
+frozen31m_ctx1792,3.8185,0.6007,0.0134,False,,,
+"gap closed by 14M online, no context: (f14 - on14) / (f14 - f31), all at C=0",,,,,0.4854,,
+gap closed by 14M online (C=0) against the context baselines: (f14c - on14) / (f14c - f31c),,,,,-0.1902,,
+"gap closed by context alone: (f14 - f14c) / (f14 - f31), gap at C=0",,,,,0.6816,,
+"14M-31M gap, C=0 (nats)",,,,,0.3506,,
+"14M-31M gap, C=1792 (nats)",,,,,0.3617,,
+paired: frozen14m_ctx1792 - online14m_ctx0 (frozen with context ahead),,,,,0.0688,0.0045,False
+paired: frozen31m_ctx0 - frozen14m_ctx1792 (31M without context ahead),,,,,0.1116,0.0197,False

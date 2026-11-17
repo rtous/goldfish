@@ -1,0 +1,12 @@
+\begin{tabular}{lrrrrr}
+\toprule
+bin (previous occurrence) & tokens & \begin{tabular}[b]{@{}r@{}}dyn.\ eval.\\no context\end{tabular} & \begin{tabular}[b]{@{}r@{}}frozen\\context\end{tabular} & \begin{tabular}[b]{@{}r@{}}dyn.\ eval.\\context\end{tabular} & \begin{tabular}[b]{@{}r@{}}dyn.\ eval. $-$ frozen,\\both with context\end{tabular} \\
+\midrule
+all tokens & 497,250 & $+0.100_{\pm .006}$ & $+0.244_{\pm .010}$ & $+0.271_{\pm .011}$ & $+0.027_{\pm .003}$ \\
+earlier, $<$ 1k & 17,036 & $+0.307_{\pm .011}$ & $+1.537_{\pm .073}$ & $+1.604_{\pm .076}$ & $+0.067_{\pm .009}$ \\
+same book, 1k-2048 & 8,193 & $+0.224_{\pm .010}$ & $+0.647_{\pm .048}$ & $+0.732_{\pm .051}$ & $+0.084_{\pm .008}$ \\
+same book, $\geq$ 2048 & 26,182 & $+0.115_{\pm .008}$ & $+0.136_{\pm .011}$ & $+0.177_{\pm .013}$ & $+0.041_{\pm .006}$ \\
+earlier book, $\geq$ 2048 & 56,679 & $-0.002_{\pm .006}^{\dagger}$ & $+0.093_{\pm .007}$ & $+0.083_{\pm .009}$ & $-0.010_{\pm .005}$ \\
+never seen & 20,976 & $-0.059_{\pm .013}$ & $+0.063_{\pm .007}$ & $+0.030_{\pm .011}$ & $-0.034_{\pm .009}$ \\
+\bottomrule
+\end{tabular}

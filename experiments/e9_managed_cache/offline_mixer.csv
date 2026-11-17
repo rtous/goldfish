@@ -1,0 +1,37 @@
+config,label,statistic,weight_on_online_expert
+2F,"online, all parameters + fallback","books, all chunks",0.869
+2F,"online, all parameters + fallback","WikiText blocks, all chunks",0.357
+2F,"online, all parameters + fallback","books, first 4 chunks",0.586
+2F,"online, all parameters + fallback","books, last 4 chunks",0.927
+2F,"online, all parameters + fallback","WikiText blocks, chunk 0",0.208
+2F,"online, all parameters + fallback","WikiText blocks, chunk 1",0.276
+2F,"online, all parameters + fallback","WikiText blocks, chunk 2",0.479
+2F,"online, all parameters + fallback","WikiText blocks, chunk 3",0.467
+2F,"online, all parameters + fallback","books, chunk-to-chunk SD of the chunk mean",0.149
+4F,store + decay + fallback (no flush),"books, all chunks",0.859
+4F,store + decay + fallback (no flush),"WikiText blocks, all chunks",0.465
+4F,store + decay + fallback (no flush),"books, first 4 chunks",0.615
+4F,store + decay + fallback (no flush),"books, last 4 chunks",0.921
+4F,store + decay + fallback (no flush),"WikiText blocks, chunk 0",0.366
+4F,store + decay + fallback (no flush),"WikiText blocks, chunk 1",0.411
+4F,store + decay + fallback (no flush),"WikiText blocks, chunk 2",0.523
+4F,store + decay + fallback (no flush),"WikiText blocks, chunk 3",0.561
+4F,store + decay + fallback (no flush),"books, chunk-to-chunk SD of the chunk mean",0.153
+6,store + fallback,"books, all chunks",0.828
+6,store + fallback,"WikiText blocks, all chunks",0.403
+6,store + fallback,"books, first 4 chunks",0.572
+6,store + fallback,"books, last 4 chunks",0.898
+6,store + fallback,"WikiText blocks, chunk 0",0.325
+6,store + fallback,"WikiText blocks, chunk 1",0.352
+6,store + fallback,"WikiText blocks, chunk 2",0.454
+6,store + fallback,"WikiText blocks, chunk 3",0.482
+6,store + fallback,"books, chunk-to-chunk SD of the chunk mean",0.170
+7,store + decay + flush + fallback,"books, all chunks",0.862
+7,store + decay + flush + fallback,"WikiText blocks, all chunks",0.474
+7,store + decay + flush + fallback,"books, first 4 chunks",0.577
+7,store + decay + flush + fallback,"books, last 4 chunks",0.930
+7,store + decay + flush + fallback,"WikiText blocks, chunk 0",0.364
+7,store + decay + flush + fallback,"WikiText blocks, chunk 1",0.403
+7,store + decay + flush + fallback,"WikiText blocks, chunk 2",0.487
+7,store + decay + flush + fallback,"WikiText blocks, chunk 3",0.643
+7,store + decay + flush + fallback,"books, chunk-to-chunk SD of the chunk mean",0.158

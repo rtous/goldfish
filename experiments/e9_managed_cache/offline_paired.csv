@@ -1,0 +1,6 @@
+comparison,gain_K1,gain_K1_se,gain_K1_under_2se,gain_mixed_books,gain_mixed_books_se,gain_mixed_books_under_2se,wiki_block_change,wiki_block_change_se,wiki_block_change_under_2se
+2F - 7,0.0293,0.0019,False,0.0340,0.0024,False,-0.0011,0.0013,True
+2F - 4F,0.0293,0.0019,False,0.0291,0.0019,False,0.0011,0.0014,True
+4F - 7,0.0000,0.0000,True,0.0049,0.0008,False,-0.0023,0.0006,False
+2F - 2,0.0016,0.0003,False,0.0011,0.0003,False,-0.0460,0.0056,False
+4F - 4,0.0007,0.0002,False,0.0005,0.0002,False,-0.0202,0.0035,False

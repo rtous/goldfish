@@ -1,0 +1,4 @@
+offline_valmixed__frozen 35 s
+offline_valmixed__all 30 s
+offline_valmixed__decay 22 s
+check, report: offline (mixer over saved losses), well under a minute each

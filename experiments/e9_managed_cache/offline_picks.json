@@ -1,0 +1,21 @@
+{
+ "alpha": {
+  "2F": 0.001,
+  "4F": 0.001
+ },
+ "grid": [
+  1e-05,
+  0.0001,
+  0.001,
+  0.01,
+  0.03,
+  0.1
+ ],
+ "objective": "mean loss over all scored tokens of valmixed",
+ "decay_val_loss_check": "4.2930 (E9 grid_decay.csv, lr 0.001 lam 0.001)",
+ "seconds": {
+  "frozen": 35,
+  "all": 30,
+  "decay": 22
+ }
+}

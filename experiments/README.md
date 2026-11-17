@@ -12,6 +12,7 @@ findings, caveats) and `runtime.txt`.
 - `runs.py`: the registry of every stream run (size, rule, lr, parameter subset, stream) and its
   runner; each run is saved once to `runs/<key>.npz` and read by the analyses.
 - `e0_lr_picks` ... `e8_full_context`: one experiment each.
+- `e9_managed_cache`: an exploratory follow-up, not in the paper.
 - `REGRESSION.md`, `regression.csv`: saved output of a one-off comparison of old
   (`experiments_LLM2_cache/`, deleted; in the git history) against new.
 - `runs/` (about 37 MB) is committed on purpose, so that every `report` works without rerunning.
@@ -25,6 +26,8 @@ findings, caveats) and `runtime.txt`.
 ../venv/bin/python runs.py worker                         # all registry runs; start up to 3 in parallel
 ../venv/bin/python e4_eviction/e4_eviction.py run          # E4 has its own runs
 ../venv/bin/python e8_full_context/e8_full_context.py run a b  # E8 too (frozen with context, then 14M online)
+../venv/bin/python e9_managed_cache/e9_managed_cache.py check  # E9 too: check, pick, run all, report;
+../venv/bin/python e9_managed_cache/e9_offline.py check       # then its offline part: check, pick, report
 ../venv/bin/python e7_update_rules/e7_update_rules.py diag
 ../venv/bin/python eN_<name>/eN_<name>.py report          # each experiment's tables and plots
 ```
@@ -42,5 +45,6 @@ findings, caveats) and `runtime.txt`.
 | [e6_long_books](e6_long_books/README.md) | C9 | over 200k-token books, does 14M online reach frozen 31M? | without context in the input: closes 49% of the gap (79% at its peak), never reaches it; 31M online gains as much (+0.168); with 1792 tokens of context, frozen 14M alone closes 68% (E8) | 60 min |
 | [e7_update_rules](e7_update_rules/README.md) | C10 | does the update rule decide the cache, across sizes? | plain SGD starves 70M's MLPs; normalized SGD recovers part of the cache; Adam has none at any size; smaller models do not forget more per nat | 8.5 h (3 parallel) |
 | [e8_full_context](e8_full_context/README.md) | C11 | with up to 1792 tokens of earlier context in the input, do the weights still hold memory beyond it? | yes, but less: online over frozen with the same context +0.041 ± 0.006 for same-book tokens last seen >= 2048 back (about a third of the gain without context), none across books (-0.010 ± 0.005), +0.027 overall; with context frozen 14M closes 68% of the 14M-31M gap on very long books, more than 14M online without context (49%) | 41 min |
+| [e9_managed_cache](e9_managed_cache/README.md) | not in the paper | can the cache be kept without collateral forgetting? | at the output, yes: a fixed-share fallback to the frozen model turns forgetting on in-stream WikiText into a small gain (-0.010 against +0.036), and on all parameters it keeps the full gain (+0.101), beating a one-layer store with the same fallback by +0.029 ± 0.002; the store saves only memory; flush adds nothing | 2 h |
 
 Runtimes are process time on the CPU, with shared runs counted once where they are first used.

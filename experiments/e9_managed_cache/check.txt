@@ -1,0 +1,6 @@
+mixer: alpha=0 equals the Bayesian mixture: PASS (sum 6012.667805 vs exact 6012.667805)
+mixer: better expert gets the weight: PASS (final weight 0.9817, min after 200 tokens 0.9035)
+mixer: alpha>0 recovers after a switch: PASS (alpha 0.01: weight below 0.5 after 8 tokens (alpha 0: never within 2000))
+mixer: forced weight 0 gives expert b: PASS (max abs diff 0.0e+00)
+store (layer 2 MLP, lr 0.001, lam 0, no flush, no mixer) vs main_K1__14m_sgd_0.001_mlp@1: {'identical_share': 1.0, 'max_abs_diff': 0.0}, 54 s
+mixer forced to frozen (weight on store 0) vs main_K1__14m_frozen: {'identical_share': 1.0, 'max_abs_diff': 0.0}

@@ -1,0 +1,7 @@
+PASS config 6 on main_K1: max per-token |offline - saved| 2.26e-02 (NOT within 2 float16 ulps), weight max diff 1.23e-02; gain 0.0711 vs E9 0.0711 (diff -2.3e-05)
+PASS config 6 on main_shuffled: max per-token |offline - saved| 2.97e-02 (NOT within 2 float16 ulps), weight max diff 1.63e-02; gain 0.0435 vs E9 0.0435 (diff +3.6e-05)
+PASS config 6 on mixed: max per-token |offline - saved| 1.70e-02 (NOT within 2 float16 ulps), weight max diff 1.25e-02; gain 0.0703 vs E9 0.0703 (diff +3.1e-05); WikiText blocks -0.0099 vs E9 -0.0099 (diff +4.3e-05)
+PASS config 7 on main_K1: max per-token |offline - saved| 2.02e-02 (NOT within 2 float16 ulps), weight max diff 1.23e-02; gain 0.0720 vs E9 0.0720 (diff +1.2e-05)
+PASS config 7 on main_shuffled: max per-token |offline - saved| 1.87e-02 (NOT within 2 float16 ulps), weight max diff 1.51e-02; gain 0.0315 vs E9 0.0315 (diff -1.5e-05)
+PASS config 7 on mixed: max per-token |offline - saved| 1.77e-02 (NOT within 2 float16 ulps), weight max diff 1.24e-02; gain 0.0664 vs E9 0.0664 (diff -2.3e-05); WikiText blocks -0.0084 vs E9 -0.0084 (diff -3.3e-05)
+overall: PASS (criterion: gains and WikiText-block means within 1e-4 of E9's table.csv; per-token differences come from float16 inputs carried through the mixer weight and are reported, not required to be within float16 rounding)

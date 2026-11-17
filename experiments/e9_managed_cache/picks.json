@@ -1,0 +1,19 @@
+{
+ "layer": 1,
+ "store_lr": 0.001,
+ "decay": {
+  "lr": 0.001,
+  "lam": 0.001
+ },
+ "flush": {
+  "lr": 0.001,
+  "lam": 0.001,
+  "threshold": 0.05,
+  "window": 2
+ },
+ "alpha": {
+  "store_fallback": 0.001,
+  "full": 0.001
+ },
+ "seconds": 530
+}

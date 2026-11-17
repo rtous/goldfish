@@ -1,0 +1,19 @@
+config,label,stream,loss_books,gain,gain_se,gain_under_2se,locality,locality_se,locality_under_2se,wiki_block_change,wiki_block_change_se,wiki_block_change_under_2se,weight_books,weight_wiki
+2,"online, all parameters",main_K1,4.2929,0.0997,0.0057,False,0.0378,0.0042,False,,,,,
+2,"online, all parameters",main_shuffled,4.3307,0.0619,0.0025,False,,,,,,,,
+2,"online, all parameters",mixed,4.2933,0.0993,0.0055,False,,,,0.0364,0.0066,False,,
+4,store + decay,main_K1,4.3213,0.0713,0.0044,False,0.0342,0.0029,False,,,,,
+4,store + decay,main_shuffled,4.3555,0.0371,0.0019,False,,,,,,,,
+4,store + decay,mixed,4.3218,0.0708,0.0043,False,,,,0.0095,0.0049,True,,
+6,store + fallback,main_K1,4.3215,0.0711,0.0043,False,0.0275,0.0026,False,,,,,
+6,store + fallback,main_shuffled,4.3491,0.0435,0.0021,False,,,,,,,,
+6,store + fallback,mixed,4.3223,0.0703,0.0042,False,,,,-0.0099,0.0019,False,0.828,0.403
+7,store + decay + flush + fallback,main_K1,4.3206,0.0720,0.0043,False,0.0405,0.0031,False,,,,,
+7,store + decay + flush + fallback,main_shuffled,4.3611,0.0315,0.0015,False,,,,,,,,
+7,store + decay + flush + fallback,mixed,4.3262,0.0664,0.0042,False,,,,-0.0084,0.0019,False,0.862,0.474
+2F,"online, all parameters + fallback",main_K1,4.2913,0.1013,0.0055,False,0.0387,0.0041,False,,,,,
+2F,"online, all parameters + fallback",main_shuffled,4.3300,0.0626,0.0024,False,,,,,,,,
+2F,"online, all parameters + fallback",mixed,4.2922,0.1004,0.0054,False,,,,-0.0096,0.0019,False,0.869,0.357
+4F,store + decay + fallback (no flush),main_K1,4.3206,0.0720,0.0043,False,0.0346,0.0029,False,,,,,
+4F,store + decay + fallback (no flush),main_shuffled,4.3551,0.0375,0.0017,False,,,,,,,,
+4F,store + decay + fallback (no flush),mixed,4.3213,0.0713,0.0042,False,,,,-0.0107,0.0020,False,0.859,0.465

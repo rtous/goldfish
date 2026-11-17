@@ -70,6 +70,10 @@ earlier, incremental experiments is in [`experiments/REGRESSION.md`](experiments
 
 - **A slow + fast "cache" part and its knobs:** a decaying fast part on one MLP on top of the slow
   learner gave +0.012 (K = 1) and +0.021 (long books), but did not reduce forgetting.
+  [E9](experiments/e9_managed_cache/README.md) (exploratory, not in the paper) decouples the two at
+  the output instead: a fixed-share fallback to the frozen model removes forgetting on in-stream
+  WikiText while keeping the full online gain (+0.101 on K = 1 with all parameters); a separate
+  one-layer store is not needed for quality, it only saves memory.
 - **Aggressive single-layer caches:** one MLP at a high rate gains more on recent material but loses
   it through forgetting; whether some setting avoids that is open.
 - **Why Adam removes the cache:** ablate its momentum and its per-weight normalization.

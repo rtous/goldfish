@@ -1,0 +1,18 @@
+main_K1__decay 799 s
+main_K1__decay_flush 789 s
+main_K1__full 789 s (same run as main_K1__decay_flush)
+main_K1__store 909 s
+main_K1__store_fallback 909 s (same run as main_K1__store)
+main_shuffled__decay 135 s
+main_shuffled__decay_flush 136 s
+main_shuffled__full 136 s (same run as main_shuffled__decay_flush)
+main_shuffled__store 265 s
+main_shuffled__store_fallback 265 s (same run as main_shuffled__store)
+mixed__all 637 s
+mixed__decay 842 s
+mixed__decay_flush 841 s
+mixed__frozen 155 s
+mixed__full 841 s (same run as mixed__decay_flush)
+mixed__store 961 s
+mixed__store_fallback 961 s (same run as mixed__store)
+pick (validation grids, 1 + 10 + 12 store runs on valmixed) 530 s

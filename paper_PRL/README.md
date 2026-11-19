@@ -46,7 +46,10 @@ blocks automated access, so check the live guide before you submit.
   `clark2022meta`, `liu2024mobilellm`, `tu2014localness`, `jelinek1991dynamic`,
   `khandelwal2020generalization`, `dai2019transformerxl`, `bulatov2022recurrent`,
   `graves2013generating`, `sun2024learning`, `schmidhuber1992learning`, `french1999catastrophic`,
-  `luo2023empirical` and `vanderwal2025polypythias`.
+  `luo2023empirical` and `vanderwal2025polypythias`. `gao2020pile` and `biderman2022datasheet` went
+  with the contamination sentence that `../paper` also removed, leaving 27.
+- Section "More context, less cache" is condensed to three sentences and its table
+  (`tables/full_context.tex`) is left out; the key numbers are in the text.
 
 ## Before submitting, check
 

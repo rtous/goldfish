@@ -38,14 +38,15 @@
 \address[1]{Department of Computer Architecture, Universitat Polit\`ecnica de Catalunya, Jordi Girona 1-3, 08034 Barcelona, Spain}
 
 \begin{abstract}
-Dynamic evaluation lets a language model keep learning from the text it reads at inference time, at the cost of forgetting.
-Because inputs such as books or code bases show temporal locality, this forgetting could act as eviction, making the weights of a small model a cache of the recent context beyond the attention window.
-We test whether this behaviour arises on its own in a standard transformer taking plain gradient steps as it reads.
-Small Pythia models read PG-19 books in chunks of 256 tokens, each scored without the preceding text in context, and reading in order is compared with reading the same chunks shuffled.
-The weights hold a memory of the current book beyond the attention window, stored mostly in the MLPs.
-It depends on the order of the input and halves within a few thousand tokens of other books.
-However, it shares the weights with general knowledge: knowledge of the same domain is largely preserved, but out-of-domain text is partly forgotten, and every setting we tried that strengthens the cache also increases this collateral forgetting.
-On 200k-token books, dynamic evaluation closes about half the gap between a 14M-parameter model and a frozen model twice its size.
+Dynamic evaluation and test-time training let a language model keep learning from the text it reads at inference time, at the cost of forgetting.
+However, inputs such as books or code bases show temporal locality: recently seen content is likely to recur.
+In a small model, this could give the behaviour of a cache: the weights would hold the recent context beyond the attention window, and new material would push out old material.
+We ask whether this behaviour arises on its own in a standard transformer taking plain gradient steps as it reads.
+Small Pythia models read PG-19 books in short chunks, each scored without the preceding text, so any help from earlier chunks must come through the weights; reading in order is compared with reading shuffled.
+We find support for the cache hypothesis.
+The weights hold a memory of the current book that depends on the order of the input and fades as other books are read.
+As expected, it competes with general knowledge: knowledge of the same domain is largely preserved, but out-of-domain text is partly forgotten, and a stronger cache is hard to get without more collateral forgetting.
+Decoupling them could better exploit temporal locality.
 \end{abstract}
 
 \begin{keyword}
@@ -72,8 +73,8 @@ New material should push out old material (\emph{eviction}), the useful side of 
 And the cache should leave the knowledge the model already had largely intact; we call the loss of that knowledge, the harmful side, \emph{collateral forgetting}.
 
 We test this with small Pythia models \citep{biderman2023pythia} reading PG-19 books \citep{rae2020compressive}, split into chunks of 256 tokens that are each scored without the previous chunks in context, so that anything that helps from further back must come through the weights.
-We measure the reach of the memory and its dependence on locality, and compare it with a token-count cache (Sections~\ref{sec:local} and~\ref{sec:levels}); locate it in the network (Section~\ref{sec:where}); measure how fast other text evicts it and how much general knowledge is forgotten (Sections~\ref{sec:eviction} and~\ref{sec:forgetting}); study how the update rule and model size affect both (Section~\ref{sec:rules}); compare dynamic evaluation with a larger frozen model on long books (Section~\ref{sec:long}); and check how much memory remains with the preceding text in the input (Section~\ref{sec:context}).
 The long-term objective of this line of work is to determine whether such a cache can reduce the model size required for a given level of performance; this study is a first step, examining whether cache behaviour emerges in a standard transformer and at what cost to general knowledge.
+Beyond the three predictions, we also ask where in the network the memory forms, how the update rule and model size shape it, and what it is worth against a larger frozen model.
 
 \section{Related work}
 
@@ -121,7 +122,7 @@ For eviction, each of 20 main-set books A is split into A1 (40 chunks) and A2 (3
 
 \paragraph{Metrics}
 The \emph{gain} is the frozen loss minus the loss under dynamic evaluation on the same tokens, in nats/token, always against the model's own frozen loss.
-\emph{Distance bins} group tokens by how far back the same token id last occurred: in the same chunk (visible to attention), in an earlier chunk less than 1k, 1k--10k, 10k--100k or at least 100k tokens back, or never; the 1000 most frequent ids are left out of the earlier-chunk bins.
+\emph{Distance bins} group tokens by how far back the same token id last occurred: in the same chunk (visible to attention), in an earlier chunk less than 1k, 1k--10k, 10k--100k or at least 100k tokens back, or never; the 1000 most frequent ids are left out of all bins (but not of the overall gain).
 The \emph{locality gain} is the gain in reading order minus the gain on the same chunks shuffled.
 The \emph{memory of A} is a snapshot's gain on A2 minus its gain on C2.
 \emph{Collateral forgetting} is a snapshot's loss on a held-out set minus that of the pretrained model, averaged over the second half of the stream (positive means knowledge lost), and the \emph{exchange rate} is the gain on the stream divided by the collateral forgetting on WikiText.
@@ -151,7 +152,7 @@ Shuffling keeps \shuffledShareAll{} of the overall gain, but only \shuffledShare
 \end{figure*}
 
 The memory is tied mostly to the current book.
-Splitting the earlier-chunk bins by whether the previous occurrence was in the same book, the locality gain between 1k and 10k tokens back is \localityTenKSamePM{} for same-book tokens and \localityTenKEarlierPM{} for earlier-book ones; between 10k and 100k, same-book tokens keep \localityHundredKSamePM{} and earlier-book tokens have none (\localityHundredKEarlierPM{}).
+Splitting the earlier-chunk bins by whether the previous occurrence was in the same book, the locality gain between 1k and 10k tokens back is \localityTenKSamePM{} for same-book tokens and \localityTenKEarlierPM{} for earlier-book ones; between 10k and 100k, same-book tokens keep \localityHundredKSamePM{}, while for earlier-book tokens it is slightly negative (\localityHundredKEarlierPM{}), consistent with eviction.
 It is also more than a count cache.
 A cache of recent token counts mixed into the frozen model ($p = 0.95\, p_\text{model} + 0.05\, p_\text{cache}$, counts halving every 1k tokens) is the better copier less than 1k tokens back (\gainUnigramOneKPM{} against \gainInOrderOneK{}), but from 1k tokens on dynamic evaluation gains more (\gainInOrderTenK{} against \gainUnigramTenKPM{} between 1k and 10k; paired difference \inOrderMinusUnigramTenKPM{}), and \inOrderMinusUnigramAllPM{} more overall.
 
@@ -276,7 +277,7 @@ With up to 1792 tokens of the preceding text in the input (Section~\ref{sec:cont
 \subsection{More context, less cache}\label{sec:context}
 
 As a control, we put up to 1792 preceding tokens of the same book in the input (the most that fits in Pythia's window) and score only the chunk's tokens.
-On the main set in order, Pythia-14M with dynamic evaluation (plain SGD, lr $10^{-4}$) then gains \fcGainAllPM{} over the frozen model with the same context, \fcShareAll{} of its gain without context; for same-book tokens last seen at least 2048 tokens back, out of the input's reach, it gains \fcGainSameFarPM{} (\fcShareSameFar{} of the gain without context), and across books none.
+On the main set in order, Pythia-14M with dynamic evaluation (plain SGD, lr $10^{-4}$) then gains \fcGainAllPM{} over the frozen model with the same context, \fcShareAll{} of its gain without context; for same-book tokens last seen at least 2048 tokens back, out of the input's reach, it gains \fcGainSameFarPM{} (\fcShareSameFar{} of the gain without context), and across books it is slightly negative (\fcGainEarlierFarPM{}).
 The weights still hold a memory beyond the input, plausibly smaller because a better-predicted input gives smaller updates.
 
 \section{Discussion and limitations}
@@ -300,16 +301,13 @@ Even so, the cache is measurable at this scale: on long books, a 14M-parameter m
 Separating eviction from collateral forgetting could strengthen the cache and move towards small models that perform on the context at hand like larger ones.
 
 \section*{Acknowledgements}
-This work has been financed by Project PID2024-160996OB-I00, under grant agreement MICIU/\allowbreak AEI/\allowbreak 10.13039/\allowbreak 501100011033 and FEDER, UE, and by Generalitat de Catalunya (AGAUR) under grant agreement 2021-SGR-00478.
+This work has been financed by Spanish Ministry of Science and Innovation through grants grants PID2024-160996OB-I00 and PID2024‑156150OB‑I00 (funded by MICIU/AEI/ 10.13039/501100011033 and by the ERDF, EU) and EQC2024‑008344‑P. Also by the Generalitat de Catalunya (AGAUR) under grants 2021-SGR-00478 and 2025-SGR-0040 and by the European Union’s Horizon 2020 research and innovation programme under the HE MARE (101191436) and HE ACCOMPLISH (101189763) projects.
 
 \section*{Data availability}
 The code, the experimental results and the scripts that generate the tables and figures are available at \url{https://github.com/rtous/goldfish}.
 
 \section*{Declaration of competing interest}
 The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper.
-
-\section*{Declaration of generative AI and AI-assisted technologies in the manuscript preparation process}
-During the preparation of this work the authors used Claude (Anthropic) to assist with editing the text and preparing the manuscript for submission. After using this tool, the authors reviewed and edited the content as needed and take full responsibility for the content of the published article.
 
 \bibliographystyle{model2-names}
 \bibliography{references}

@@ -207,7 +207,7 @@ For eviction (Section~\ref{sec:eviction}), the book A of each eviction stream is
 
 The \emph{gain} measures how much dynamic evaluation helps: the frozen loss minus the loss under dynamic evaluation on the same tokens of the stream, in nats/token, always against the model's own frozen loss.
 To see where the gain comes from, \emph{distance bins} group tokens by how far back in the stream the same token id last occurred: in the same chunk (visible to attention), in an earlier chunk less than 1k, 1k to 10k, 10k to 100k or at least 100k tokens back, or never.
-The 1000 most frequent ids are left out of the earlier-chunk bins, which are further split by whether the previous occurrence was in the same book or an earlier one.
+The 1000 most frequent ids are left out of all bins (but not of the overall gain), and the earlier-chunk bins are further split by whether the previous occurrence was in the same book or an earlier one.
 The \emph{locality gain} is the part of the gain that requires the reading order: the gain on a stream in reading order minus the gain on the same chunks shuffled.
 In the eviction experiment, the \emph{memory of A} is what a snapshot still knows about book A beyond general adaptation: its gain on A2 minus its gain on C2.
 \emph{Collateral forgetting} is the loss of general knowledge: a snapshot's loss on a held-out set minus that of the pretrained model, averaged over the snapshots in the second half of the stream, so that positive values mean knowledge lost.
@@ -251,8 +251,9 @@ Most of the overall gain is therefore adaptation to PG-19 text in general, and m
 A token may be predicted better because it was seen recently, or because it belongs to the book being read.
 Splitting the earlier-chunk bins by book separates the two (Table~\ref{tab:samebook}).
 Between 1k and 10k tokens back, the locality gain is \localityTenKSamePM{} for tokens last seen in the same book and \localityTenKEarlierPM{} for tokens last seen in an earlier book.
-Between 10k and 100k tokens back, same-book tokens keep \localityHundredKSamePM{} of locality gain and earlier-book tokens have none (\localityHundredKEarlierPM{}).
+Between 10k and 100k tokens back, same-book tokens keep \localityHundredKSamePM{} of locality gain, while for earlier-book tokens it is slightly negative (\localityHundredKEarlierPM{}).
 The memory is tied mostly to the current book, although distance still matters within it.
+Beyond 10k tokens, reading in order is thus slightly worse than shuffled for tokens of earlier books (and overall, Table~\ref{tab:distance}), as eviction would predict: in order, earlier books have been pushed out by the current one, while the shuffled learner keeps all books mixed in its weights.
 
 \begin{table}[t]
 \centering\footnotesize\setlength{\tabcolsep}{3.5pt}
@@ -434,7 +435,7 @@ Every result so far scores each chunk without the text before it, so that any he
 As a control, we put up to 1792 tokens of the preceding text of the same book in the input, the most that fits next to a 256-token chunk in Pythia's 2048-token window, and score only the chunk's tokens, so the scored tokens and their pairing are unchanged (Table~\ref{tab:context}); context never crosses a book boundary, so a book's first chunks get less.
 Pythia-14M with dynamic evaluation on top of this context (plain SGD, lr $10^{-4}$, each update on the chunk's tokens only) gains \fcGainAllPM{} over the frozen model with the same context, \fcShareAll{} of its gain without context.
 For tokens whose previous occurrence is in the same book at least 2048 tokens back, out of the input's reach, it gains \fcGainSameFarPM{} over the frozen model with context, against \fcNoContextSameFarPM{} without context: the weights still hold a memory of the book beyond the input, but about a third as much (\fcShareSameFar{}).
-Across books there is none (\fcGainEarlierFarPM{}), and the loss on never-seen tokens remains (\fcGainNeverPM{}).
+Across books it is slightly negative (\fcGainEarlierFarPM{}), and the loss on never-seen tokens remains (\fcGainNeverPM{}).
 A plausible explanation is that less is written into the weights when the input already predicts the text well, since a smaller loss gives smaller updates.
 The experiment does not separate this from plain overlap between what the weights and the input hold, and the learning rate was picked without context, so a rate picked with context might give a different gain.
 
@@ -472,7 +473,7 @@ Finally, Adam has no cache at any size, and ablating its momentum and its per-we
 
 Small language models are cheaper to run and easier to deploy, but their limited capacity restricts how much knowledge and context they can retain.
 We started from the observation that what a model reads has temporal locality, so that a small model whose weights cached its current context, instead of permanently holding everything it might need, could perform on that context closer to a larger one.
-Dynamic evaluation is a natural candidate for such a cache, provided that its forgetting, usually seen as the price of learning at inference time, acts as eviction: a model that forgets old material as it learns new material might hold the recent context in its weights beyond the attention window.
+Dynamic evaluation is a natural candidate for such a cache, provided that its forgetting, usually seen as the price of learning at inference time, acts as eviction: a model that forgets old material as it learns new material might hold the recent context in its weights beyond the attention window. 
 We asked whether this behaviour arises on its own in a small transformer that takes plain gradient steps as it reads, and tested the three properties a cache should have.
 
 The first two hold.
@@ -494,7 +495,7 @@ The code and data are publicly available at \url{https://github.com/rtous/goldfi
 
 \section*{Acknowledgements}
 
-This work has been financed by Project PID2024-160996OB-I00, under grant agreement MICIU/\allowbreak AEI/\allowbreak 10.13039/\allowbreak 501100011033 and FEDER, UE, and by Generalitat de Catalunya (AGAUR) under grant agreement 2021-SGR-00478.
+This work has been financed by Spanish Ministry of Science and Innovation through grants grants PID2024-160996OB-I00 and PID2024‑156150OB‑I00 (funded by MICIU/AEI/ 10.13039/501100011033 and by the ERDF, EU) and EQC2024‑008344‑P. Also by the Generalitat de Catalunya (AGAUR) under grants 2021-SGR-00478 and 2025-SGR-0040 and by the European Union’s Horizon 2020 research and innovation programme under the HE MARE (101191436) and HE ACCOMPLISH (101189763) projects.
 
 {\small
 \setlength{\bibsep}{1.5pt plus 0.5pt}

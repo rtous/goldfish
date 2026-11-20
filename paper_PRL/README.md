@@ -20,14 +20,14 @@ blocks automated access, so check the live guide before you submit.
   plus `model2-names.bst` for author–year (Harvard) references.
 - Length: **at most 7 pages, including figures, tables and references** (one more page is allowed
   after revision). The manuscript is exactly 7 pages.
-- Abstract: at most 200 words. It is now 199 words.
+- Abstract: at most 200 words. It is now 198 words.
 - Title: only the first word and proper nouns capitalized.
 - Highlights: required, as a separate file, with 3–5 bullets of at most 85 characters each.
   There are 5 bullets, the longest 79 characters.
 - Confirmation of Authorship form: required.
 - Figures are at most half a page, and their text is at least as large as the captions (8 pt).
   Captions go below figures and above tables.
-- Declarations before the references: competing interests, data availability, and use of generative AI.
+- Declarations before the references: competing interests and data availability (no generative-AI declaration).
 - Graphical abstract: optional, not included.
 
 ## What was cut from ../paper (15 single-column pages → 7 double-column pages)
@@ -56,8 +56,8 @@ blocks automated access, so check the live guide before you submit.
 1. **Affiliation**: the department ("Department of Computer Architecture, UPC, Jordi Girona 1-3,
    08034 Barcelona") was added; check it is right for all three authors.
 2. **CRediT statement** in `declarations.tex` is a draft. Check each author's roles.
-3. **Generative AI declaration** (in `main.tex` and `declarations.tex`): adjust it to how AI tools
-   were used, or remove it if they were not.
+3. **Generative AI declaration**: removed from `main.tex` and `declarations.tex`. Elsevier asks for
+   one if AI tools were used in writing; add it back if that applies.
 4. **Authorship confirmation**: fill in pre-prints (e.g. arXiv) and conference versions, then sign and
    date it. If there is a preprint, it must state that the paper is under consideration at PRL.
 5. The submission system may ask for **suggested reviewers** and keywords. The keywords are in
